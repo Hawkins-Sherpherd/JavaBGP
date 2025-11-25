@@ -1,0 +1,186 @@
+Java-MRT 库使用文档
+概述
+Java-MRT 是一个用于解析 MRT (Multi-Threaded Routing Toolkit) 文件的 Java 库。该库提供了处理 BGP 路由信息和相关属性的完整功能。
+
+核心类说明
+1. Advertisement (BGP 通告)
+继承自 Bgp4Update，表示 BGP 更新消息中的路由通告。
+
+主要方法：
+
+isIPv4() - 检查是否为 IPv4 前缀
+
+isIPv6() - 检查是否为 IPv6 前缀
+
+getCommunity() - 获取社区属性
+
+getMed() - 获取 MED 值
+
+toAdvertisement() - 转换为 Advertisement 对象
+
+2. AS (自治系统号)
+表示 BGP 自治系统号，支持 2 字节和 4 字节 AS 号。
+
+主要特性：
+
+支持 AS_TRANS (23456) 占位符
+
+支持点分格式 AS 号 (如 1.100)
+
+完整的比较和相等性检查
+
+主要方法：
+
+getASN() - 获取 AS 号数值
+
+is4Byte() - 检查是否为 4 字节 AS 号
+
+isPlaceholder() - 检查是否为占位符 AS
+
+parseString() - 从字符串解析 AS 号
+
+toString() - 字符串表示
+
+3. ASPath (AS 路径)
+表示 BGP 的 AS_PATH 属性，支持多种路径段类型。
+
+路径段类型：
+
+asSequence - AS 序列
+
+asSet - AS 集合
+
+asConfedSequence - 联盟序列
+
+asConfedSet - 联盟集合
+
+主要方法：
+
+length() - 获取路径长度
+
+get(int i) - 获取指定位置的 AS
+
+append(AS as) - 添加 AS 到路径
+
+generator() - 获取路径生成者 AS
+
+canonicalPath() - 获取无预pend的规范路径
+
+fromString() - 从字符串解析 AS 路径
+
+4. 路径相关类
+ASSet - AS 集合，格式为 (AS1 AS2 AS3)
+
+ASConfedSequence - 联盟序列，格式为 [AS1 AS2 AS3]
+
+ASConfedSet - 联盟集合，格式为 {AS1 AS2 AS3}
+
+5. Attributes (BGP 属性集合)
+管理 BGP 消息中的所有属性。
+
+支持的属性类型：
+
+AS_PATH
+
+ORIGIN
+
+NEXT_HOP
+
+LOCAL_PREF
+
+MULTI_EXIT_DISC (MED)
+
+COMMUNITY
+
+ATOMIC_AGGREGATE
+
+AGGREGATOR
+
+MP_REACH/MP_UNREACH (多协议可达/不可达)
+
+EXTENDED_COMMUNITIES
+
+LARGE_COMMUNITY
+
+等
+
+主要方法：
+
+getASPath() - 获取 AS 路径
+
+getCommunity() - 获取社区属性
+
+getMed() - 获取 MED 值
+
+getLargeCommunity() - 获取大社区属性
+
+6. 具体属性类
+Community
+处理 BGP 社区属性，格式为 AS:VALUE
+
+Med
+处理 MULTI_EXIT_DISC 属性
+
+Aggregator
+处理聚合器属性，包含聚合 AS 和 IP 地址
+
+NextHop
+处理下一跳属性
+
+LocalPref
+处理本地优先级属性
+
+ASPathLimit
+处理 AS 路径限制属性（类型码 21）
+
+AtomAggr
+处理原子聚合属性
+
+使用示例
+解析 AS 路径
+java
+String asPathStr = "100 200 (300 400) 500";
+ASPath asPath = ASPath.fromString(asPathStr);
+System.out.println(asPath.toString()); // 输出: 100 200 (300 400) 500
+处理 AS 号
+java
+AS as1 = new AS(64512L);
+AS as2 = AS.parseString("AS64513");
+AS as3 = AS.parseString("1.100"); // 点分格式
+
+System.out.println(as1.is4Byte()); // 检查是否为 4 字节 AS
+处理 BGP 属性
+java
+// 获取社区属性
+Community comm = attributes.getCommunity();
+String commStr = comm.toString();
+
+// 获取 MED 值
+Med med = attributes.getMed();
+long medValue = med.getMed();
+
+// 获取 AS 路径
+ASPath path = attributes.getASPath();
+AS originAs = path.generator(); // 获取起源 AS
+异常处理
+库中主要使用以下异常：
+
+AttributeException - 属性解析错误
+
+IllegalArgumentException - 参数错误
+
+通用 Exception - 其他解析错误
+
+许可证
+该库基于 LGPL 3.0 许可证发布。
+
+注意事项
+支持 IPv4 和 IPv6 地址族
+
+正确处理 2 字节和 4 字节 AS 号
+
+支持 RFC4893 的 AS23456 替换机制
+
+提供完整的 AS 路径预pend检测功能
+
+支持多种 BGP 属性扩展

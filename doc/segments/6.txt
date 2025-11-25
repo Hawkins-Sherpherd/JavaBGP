@@ -1,0 +1,103 @@
+GenericRIB - 通用 RIB 记录类
+GenericRIB 类是一个待实现的通用路由信息库记录处理类，用于处理 TABLE_DUMP_V2 格式中的通用 RIB 记录。
+
+类概述
+继承自 MRTRecord
+
+目前处于开发中状态（TODO 状态）
+
+旨在处理多种地址族的 RIB 记录
+
+设计用于替代特定地址族的专用 RIB 类
+
+构造函数
+java
+GenericRIB(byte[] header, byte[] body)
+当前状态
+⚠️ 注意：这个类目前尚未完全实现
+
+代码中包含大量被注释掉的实现代码，表明这是一个正在进行中的开发工作。
+
+计划功能
+根据注释代码，计划支持的功能包括：
+
+1. RIB 记录结构解析
+java
+// 计划解析的字段：
+long sequenceNo;    // 序列号
+int afi;           // 地址族标识符
+int safi;          // 子地址族标识符
+Nlri nlri;         // 网络层可达信息
+int entryCount;    // 条目数量
+2. 对等体信息处理
+java
+// 计划支持对等体索引表引用
+int peerIndex;      // 对等体索引
+long time;          // 时间戳
+int attrLen;        // 属性长度
+3. 属性解析
+java
+// 计划集成现有的属性解析系统
+GetAttributes bgp4Attributes = new GetAttributes(body, attrLen, offset);
+Vector attributes = bgp4Attributes.getAttributes();
+输出格式
+计划输出格式（基于注释代码）：
+
+text
+TABLE_DUMP_V2|时间戳|对等体IP|对等体AS|属性|前缀/掩码长度
+当前限制
+未实现 - 主要功能代码被注释
+
+占位类 - 目前仅返回固定字符串
+
+依赖未完成 - 需要其他组件支持
+
+使用示例（当前状态）
+java
+// 当前只能创建对象，但功能有限
+GenericRIB rib = new GenericRIB(header, body);
+System.out.println(rib.toString()); // 输出: "TODO: genericRIB.toString()"
+在 MRT 解析中的引用
+在 BGPFileReader.java 中可以看到相关的处理逻辑：
+
+java
+case 6:
+    parseGenericRib();  // 引用 GenericRIB 解析
+    break;
+开发说明
+需要完成的工作
+取消注释并测试现有代码
+
+集成属性解析系统
+
+处理多种地址族（IPv4/IPv6）
+
+完善错误处理
+
+添加完整的 toString() 实现
+
+预期的完整实现
+java
+public String toString() {
+    // 计划输出完整的 RIB 记录信息
+    return String.format("GENERIC_RIB|%d|%s|%s|%s/%d", 
+                       sequenceNo, peerIP, peerAS, 
+                       nlri.getAddress(), nlri.getMaskLen());
+}
+相关常量
+在 MRTConstants.java 中相关的常量：
+
+TABLE_DUMP_V2 - 记录类型
+
+PEER_INDEX_TABLE - 对等体索引表
+
+AFI_IPv4, AFI_IPv6 - 地址族标识符
+
+注意事项
+实验性代码 - 不要在生产环境中使用
+
+开发状态 - 功能可能不完整或不稳定
+
+依赖关系 - 需要其他 RIB 相关类的支持
+
+这个类代表了 Java-MRT 库未来发展的方向，旨在提供更统一和灵活的 RIB 记录处理能力。

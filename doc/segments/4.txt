@@ -1,0 +1,99 @@
+Dpa - 目的地偏好属性
+Dpa 类用于处理 BGP 目的地偏好属性（Destination Preference Attribute）。
+
+类概述
+DPA 属性是一个 Cisco 专有属性，用于在 BGP 路由选择过程中表示目的地的偏好程度。
+
+构造函数
+java
+Dpa(byte[] buffer)
+从字节数组构造 DPA 对象，字节数组格式：
+
+前 2 字节：AS 号
+
+后 4 字节：DPA 值
+
+属性字段
+java
+protected int asNo;      // AS 号码（2字节）
+protected long dpaValue; // DPA 值（4字节）
+主要方法
+toString()
+返回 DPA 属性的字符串表示，格式为：AS:VALUE
+
+示例输出：
+
+text
+64512:123456
+equals()
+比较两个 DPA 对象是否相等，比较 AS 号和 DPA 值。
+
+使用示例
+基本使用
+java
+// 创建 DPA 对象
+byte[] buffer = new byte[] {
+    0x19, 0x80,        // AS 号: 6528 (0x1980)
+    0x00, 0x01, 0xE2, 0x40  // DPA 值: 123456 (0x0001E240)
+};
+
+Dpa dpa = new Dpa(buffer);
+System.out.println(dpa.toString()); // 输出: "6528:123456"
+在 BGP 属性中的使用
+java
+// 从 BGP 更新中获取 DPA 属性
+Attributes attrs = advertisement.getAttributes();
+
+// 注意：DPA 属性需要通过特定类型码获取
+// 通常通过 ATTRIBUTE_DPA 常量访问
+相等性比较
+java
+byte[] buffer1 = new byte[] {0x19, 0x80, 0x00, 0x01, 0xE2, 0x40};
+byte[] buffer2 = new byte[] {0x19, 0x80, 0x00, 0x01, 0xE2, 0x40};
+byte[] buffer3 = new byte[] {0x19, 0x81, 0x00, 0x01, 0xE2, 0x40}; // 不同 AS
+
+Dpa dpa1 = new Dpa(buffer1);
+Dpa dpa2 = new Dpa(buffer2);
+Dpa dpa3 = new Dpa(buffer3);
+
+System.out.println(dpa1.equals(dpa2)); // true - 相同 AS 和值
+System.out.println(dpa1.equals(dpa3)); // false - 不同 AS
+字节结构说明
+DPA 属性的字节布局：
+
+text
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|           AS Number           |          DPA Value            |
+|                               |                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+字节 0-1: AS 号码（16位无符号整数）
+
+字节 2-5: DPA 值（32位无符号整数）
+
+实际应用场景
+DPA 属性主要用于：
+
+Cisco 设备间的路由选择 - 在多个等价路径中选择偏好路径
+
+策略路由 - 基于目的地偏好进行路由决策
+
+多宿主网络 - 在不同上游提供商间选择最优路径
+
+注意事项
+厂商专有 - DPA 是 Cisco 专有属性，可能不被其他厂商设备识别
+
+传输性 - 通常配置为不传输给 eBGP 对等体
+
+兼容性 - 在现代 BGP 实现中较少使用，被其他机制替代
+
+在 MRT 解析中的位置
+在 Attributes.java 中，DPA 属性通过类型码 MRTConstants.ATTRIBUTE_DPA 处理：
+
+java
+case MRTConstants.DPA:
+    Attribute dpa = new Dpa(buffer);
+    attributes.set(MRTConstants.ATTRIBUTE_DPA, dpa);
+    break;
+DPA 类提供了完整的 BGP 目的地偏好属性支持，适用于解析包含 Cisco 专有属性的 MRT 数据。

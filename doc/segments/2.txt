@@ -1,0 +1,240 @@
+BGP 文件读取和解析
+BGPFileReader - MRT 文件读取器
+核心类，用于读取和解析 MRT 格式的 BGP 数据文件。
+
+构造函数
+java
+// 从输入流创建
+BGPFileReader(InputStream in)
+
+// 从文件名创建（支持本地文件和URL）
+BGPFileReader(String name) throws IOException
+
+// 从文件对象创建
+BGPFileReader(File f) throws IOException
+主要方法
+readNext() - 读取下一条 MRT 记录
+
+close() - 关闭读取器
+
+eof() - 检查是否到达文件末尾
+
+mrtRecords() - 获取已读取的 MRT 记录数
+
+setLenient(boolean) - 设置宽松解析模式
+
+支持的文件格式
+普通 MRT 文件
+
+GZIP 压缩文件 (.gz)
+
+TABLE_DUMP v1/v2 格式
+
+BGP4MP 格式
+
+BGPDUMP 格式
+
+Bgp4Update - BGP 更新消息基类
+表示 BGP 更新消息的基础类，继承自 MRTRecord。
+
+主要属性
+updateType - 更新类型 ('A' 表示通告, 'W' 表示撤销)
+
+peerIP - 对等体 IP 地址
+
+peerAS - 对等体 AS 号
+
+prefix - 路由前缀
+
+updateAttr - BGP 属性集合
+
+主要方法
+java
+// 获取信息
+boolean isIPv4()
+boolean isIPv6()
+Prefix getPrefix()
+AS getPeerAS()
+InetAddress getPeer()
+ASPath getASPath()
+Attributes getAttributes()
+
+// 比较和相等性检查
+int compareTo(Bgp4Update other)
+boolean equals(Object o)
+
+// 类型转换
+Advertisement toAdvertisement()
+Withdraw toWithdraw()
+输出格式
+text
+更新字符串|时间戳|更新类型|对等体IP|对等体AS|前缀|[属性]
+MRT 记录类型
+1. Advertisement (路由通告)
+继承自 Bgp4Update，表示 BGP 路由通告。
+
+2. Withdraw (路由撤销)
+继承自 Bgp4Update，表示 BGP 路由撤销。
+
+3. StateChange (状态变化)
+表示 BGP 会话状态变化。
+
+属性：
+
+时间戳
+
+源 IP 和 AS
+
+旧状态和新状态
+
+更新类型字符串
+
+4. KeepAlive (保活消息)
+BGP KeepAlive 消息。
+
+5. Open (OPEN 消息)
+BGP OPEN 消息，包含 BGP ID 等信息。
+
+6. Notification (NOTIFICATION 消息)
+BGP NOTIFICATION 消息。
+
+7. Refresh (REFRESH 消息)
+BGP ROUTE-REFRESH 消息。
+
+8. EndOfRib (RIB 结束标记)
+表示 RIB 数据发送完成的标记。
+
+9. TableDump / TableDumpv2
+表转储格式记录。
+
+使用示例
+基本文件读取
+java
+// 创建读取器
+BGPFileReader reader = new BGPFileReader("rib.dat");
+
+// 设置宽松模式（可选）
+BGPFileReader.setLenient(true);
+
+// 读取记录
+MRTRecord record;
+while ((record = reader.readNext()) != null) {
+    if (record instanceof Advertisement) {
+        Advertisement adv = (Advertisement) record;
+        System.out.println("通告: " + adv.getPrefix() + " AS路径: " + adv.getASPath());
+    } else if (record instanceof Withdraw) {
+        Withdraw wd = (Withdraw) record;
+        System.out.println("撤销: " + wd.getPrefix());
+    }
+}
+
+reader.close();
+处理 BGP 更新
+java
+BGPFileReader reader = new BGPFileReader("updates.dat");
+MRTRecord record;
+
+while ((record = reader.readNext()) != null) {
+    if (record instanceof Bgp4Update) {
+        Bgp4Update update = (Bgp4Update) record;
+        
+        // 获取基本信息
+        Prefix prefix = update.getPrefix();
+        AS peerAS = update.getPeerAS();
+        InetAddress peerIP = update.getPeer();
+        
+        // 处理通告
+        if (update instanceof Advertisement) {
+            Advertisement adv = (Advertisement) update;
+            ASPath asPath = adv.getASPath();
+            Community community = adv.getCommunity();
+            
+            System.out.println("路由通告: " + prefix + 
+                             " 来源: " + peerAS + 
+                             " AS路径: " + asPath);
+        }
+        
+        // 处理撤销
+        if (update instanceof Withdraw) {
+            System.out.println("路由撤销: " + prefix + " 来自: " + peerAS);
+        }
+    }
+}
+错误处理
+java
+try {
+    BGPFileReader reader = new BGPFileReader("data.mrt");
+    
+    while (!reader.eof()) {
+        try {
+            MRTRecord record = reader.readNext();
+            // 处理记录...
+        } catch (MalformedBgpStreamException e) {
+            System.err.println("数据格式错误: " + e.getMessage());
+            // 继续处理下一条记录
+        } catch (RFC4893Exception e) {
+            System.err.println("RFC4893 处理错误: " + e.getMessage());
+            // 包含对等体信息的错误
+        }
+    }
+    
+    reader.close();
+} catch (IOException e) {
+    System.err.println("文件读取错误: " + e.getMessage());
+}
+高级特性
+宽松模式
+启用宽松模式可以处理一些非标准的 MRT 文件：
+
+java
+BGPFileReader.setLenient(true);
+在此模式下：
+
+允许截断的记录
+
+自动重新对齐 BGP 标记
+
+更宽容的解析错误
+
+多协议支持
+库支持多种地址族：
+
+IPv4 (AFI = 1)
+
+IPv6 (AFI = 2)
+
+大文件处理
+使用流式处理避免内存问题：
+
+java
+BGPFileReader reader = new BGPFileReader("large_rib.dat");
+MRTRecord record;
+int count = 0;
+
+while ((record = reader.readNext()) != null) {
+    count++;
+    if (count % 10000 == 0) {
+        System.out.println("已处理 " + count + " 条记录");
+    }
+}
+性能考虑
+使用缓冲：构造函数自动使用缓冲输入流
+
+及时关闭：处理完成后调用 close() 方法
+
+流式处理：避免在内存中积累大量记录
+
+选择性处理：根据需要只处理特定类型的记录
+
+异常类型
+BGPFileReaderException - 文件读取错误
+
+MalformedBgpStreamException - 数据格式错误
+
+RFC4893Exception - AS4 路径处理错误
+
+AttributeException - 属性解析错误
+
+IOException - I/O 操作错误
+
+这个库提供了完整的 MRT 文件解析能力，适合用于 BGP 数据分析、路由监控和网络研究等场景。

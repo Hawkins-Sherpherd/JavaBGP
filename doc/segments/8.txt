@@ -1,0 +1,159 @@
+KeepAlive - BGP 保活消息
+KeepAlive 类表示 BGP 保活消息，用于维持 BGP 会话的活动状态。
+
+类概述
+BGP KeepAlive 消息是 BGP 协议中的一种控制消息，主要功能：
+
+维持会话 - 在保持时间间隔内定期发送，防止会话超时
+
+轻量级 - 只包含 BGP 消息头，没有消息体
+
+必需消息 - BGP 协议要求必须支持 KeepAlive
+
+构造函数
+java
+KeepAlive(byte[] header, byte[] record, AS peerAs, InetAddress peerIp, 
+          AS localAs, InetAddress localIp)
+参数说明：
+
+header - MRT 记录头
+
+record - MRT 记录体
+
+peerAs - 对等体 AS 号
+
+peerIp - 对等体 IP 地址
+
+localAs - 本地 AS 号
+
+localIp - 本地 IP 地址
+
+主要方法
+获取对等体信息
+java
+InetAddress getPeer()        // 获取对等体 IP 地址
+AS getPeerAS()              // 获取对等体 AS 号
+AS getLocalAs()             // 获取本地 AS 号
+InetAddress getLocalIp()    // 获取本地 IP 地址
+其他方法
+java
+String toString()           // 返回格式化字符串表示
+boolean equals(Object o)    // 比较两个 KeepAlive 对象
+int hashCode()             // 计算哈希值
+输出格式
+text
+KEEP_ALIVE|时间戳|对等体IP|对等体AS
+示例输出：
+
+text
+KEEP_ALIVE|1635724800|192.168.1.1|64512
+BGP KeepAlive 消息格式
+标准的 BGP KeepAlive 消息结构：
+
+text
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                                                               +
+|                           Marker                              |
++                                                               +
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          Length               |      Type     |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+Marker: 16 字节认证数据（全 1）
+
+Length: 消息总长度（19 字节）
+
+Type: 消息类型（4 = KeepAlive）
+
+使用示例
+基本使用
+java
+// 在 MRT 文件解析中识别 KeepAlive 消息
+BGPFileReader reader = new BGPFileReader("bgp_updates.mrt");
+MRTRecord record;
+
+while ((record = reader.readNext()) != null) {
+    if (record instanceof KeepAlive) {
+        KeepAlive keepAlive = (KeepAlive) record;
+        
+        System.out.println("保活消息从: " + keepAlive.getPeerAS());
+        System.out.println("对等体 IP: " + keepAlive.getPeer().getHostAddress());
+        System.out.println("本地 AS: " + keepAlive.getLocalAs());
+        System.out.println("时间: " + keepAlive.getTime());
+        System.out.println(keepAlive.toString());
+    }
+}
+会话监控
+java
+// 监控 BGP 会话活动
+Map<String, Long> lastKeepAlive = new HashMap<>();
+
+if (record instanceof KeepAlive) {
+    KeepAlive ka = (KeepAlive) record;
+    String sessionKey = ka.getPeer().getHostAddress() + ":" + ka.getPeerAS();
+    lastKeepAlive.put(sessionKey, ka.getTime());
+    
+    System.out.println("会话活跃: " + sessionKey + " 时间: " + ka.getTime());
+}
+在 BGP 状态机中的作用
+KeepAlive 消息在 BGP 状态转换中起关键作用：
+
+OpenSent → OpenConfirm - 收到 KeepAlive 后转换
+
+OpenConfirm → Established - 发送 KeepAlive 后转换
+
+Established 状态 - 定期交换 KeepAlive 维持会话
+
+实际应用场景
+会话健康监控
+java
+// 检查会话是否活跃
+public boolean isSessionActive(String peerIP, long currentTime, long timeout) {
+    Long lastKA = lastKeepAliveTimes.get(peerIP);
+    return lastKA != null && (currentTime - lastKA) < timeout;
+}
+网络故障诊断
+java
+// 检测 KeepAlive 消息丢失
+if (record instanceof KeepAlive) {
+    KeepAlive ka = (KeepAlive) record;
+    long timeSinceLast = ka.getTime() - lastKeepAliveTime;
+    if (timeSinceLast > expectedInterval * 2) {
+        System.out.println("可能的 KeepAlive 丢失检测于: " + ka.getTime());
+    }
+    lastKeepAliveTime = ka.getTime();
+}
+相等性比较
+KeepAlive 类正确实现了 equals() 和 hashCode() 方法，基于：
+
+时间戳
+
+对等体 AS 和 IP
+
+本地 AS 和 IP
+
+java
+KeepAlive ka1 = new KeepAlive(header1, record1, as1, ip1, localAs1, localIp1);
+KeepAlive ka2 = new KeepAlive(header2, record2, as1, ip1, localAs1, localIp1);
+
+System.out.println(ka1.equals(ka2)); // true - 相同对等体和时间
+在 MRT 解析中的位置
+在 BGPFileReader.java 中处理：
+
+java
+case MRTConstants.BGPDUMP_SUBTYPE_MRTD_BGP_KEEPALIVE:
+    return new KeepAlive(header, record, peerAS, peerIP, localAS, localIP);
+
+case MRTConstants.BGP4MSG_KEEPALIVE:
+    return new KeepAlive(header, record, srcAs, srcIP, dstAs, dstIP);
+相关常量
+在 MRTConstants.java 中：
+
+BGP4MSG_KEEPALIVE = 4
+
+BGPDUMP_SUBTYPE_MRTD_BGP_KEEPALIVE = 对应保活消息子类型
+
+KeepAlive 类提供了完整的 BGP 保活消息支持，对于 BGP 会话监控和网络故障诊断非常重要

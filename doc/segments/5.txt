@@ -1,0 +1,144 @@
+EndOfRib - RIB 结束标记
+EndOfRib 类表示 BGP 路由信息库结束标记，用于标识 RIB 转储或初始数据同步的完成。
+
+类概述
+End-of-RIB 标记表示对等体已完成发送所有路由更新，通常用于：
+
+初始 BGP 会话建立后的路由同步完成
+
+TABLE_DUMP 格式的结束标记
+
+BGP 路由刷新操作的完成
+
+构造函数
+java
+// 基本构造函数（无属性）
+EndOfRib(byte[] header, byte[] record, InetAddress peerIP, AS peerAS, String updateStr)
+
+// 带属性的构造函数
+EndOfRib(byte[] header, byte[] record, InetAddress peerIP, AS peerAS, 
+         Attributes updateAttr, String updateStr)
+主要特性
+继承自 Bgp4Update
+
+updateType 设置为 0（特殊类型）
+
+prefix 字段为 null（不关联特定前缀）
+
+输出格式
+text
+更新字符串|时间戳|EOR|对等体IP|对等体AS|[属性]
+示例输出：
+
+text
+BGP4MP|1635724800|EOR|192.168.1.1|64512|
+使用示例
+java
+// 在 MRT 文件解析中识别 EndOfRib
+BGPFileReader reader = new BGPFileReader("rib.dat");
+MRTRecord record;
+
+while ((record = reader.readNext()) != null) {
+    if (record instanceof EndOfRib) {
+        EndOfRib eor = (EndOfRib) record;
+        System.out.println("收到 RIB 结束标记从: " + eor.getPeerAS());
+        System.out.println("时间: " + eor.getTime());
+    }
+}
+ExtCommunities - 扩展社区属性
+ExtCommunities 类处理 BGP 扩展社区属性，支持更灵活的社区格式。
+
+类概述
+扩展社区属性提供比标准社区更丰富的语义，支持多种类型：
+
+路由目标 (Route Target) - 用于 VPN 路由分发
+
+路由起源 (Route Origin) - 标识路由来源
+
+其他自定义类型
+
+构造函数
+java
+ExtCommunities(byte[] buffer) throws Exception
+支持的格式
+1. 2字节AS:4字节数值格式 (类型 0x00, 0x02)
+text
+AS:VALUE
+示例： 64512:123456
+
+2. IPv4地址:2字节数值格式 (类型 0x01)
+text
+IP:VALUE
+示例： 192.168.1.1:100
+
+内部字段
+java
+private String extCom;  // 格式化的扩展社区字符串
+private long number;    // 数值部分
+private String ip;      // IP 地址（如果适用）
+private int as;         // AS 号（如果适用）
+使用示例
+基本使用
+java
+// 路由目标扩展社区 (AS:数值格式)
+byte[] buffer1 = new byte[] {
+    0x00, 0x02,        // 类型高位=0x00, 子类型=0x02 (Route Target)
+    0xFC, 0x00,        // AS 64512
+    0x00, 0x01, 0xE2, 0x40  // 数值 123456
+};
+
+ExtCommunities extComm1 = new ExtCommunities(buffer1);
+System.out.println(extComm1.toString()); // 输出: "64512:123456"
+
+// IP格式的扩展社区
+byte[] buffer2 = new byte[] {
+    0x01, 0x00,        // 类型高位=0x01
+    192, 168, 1, 1,    // IP 192.168.1.1
+    0x00, 0x64         // 数值 100
+};
+
+ExtCommunities extComm2 = new ExtCommunities(buffer2);
+System.out.println(extComm2.toString()); // 输出: "192.168.1.1:100"
+在 BGP 更新中的使用
+java
+// 从 BGP 属性获取扩展社区
+Attributes attrs = advertisement.getAttributes();
+ExtCommunities extCommunities = 
+    (ExtCommunities) attrs.getAttribute(MRTConstants.ATTRIBUTE_EXT_COMMUNITIES);
+
+if (extCommunities != null) {
+    System.out.println("扩展社区: " + extCommunities.toString());
+}
+实际应用场景
+VPN 路由分发
+java
+// MPLS VPN 中的路由目标
+// 路由目标: 64512:100 表示该路由属于 VPN 100
+ExtCommunities rtCommunity = new ExtCommunities(rtBuffer);
+System.out.println("VPN 路由目标: " + rtCommunity.toString());
+流量工程
+java
+// BGP 流量工程扩展社区
+// 可以携带带宽、颜色等流量工程信息
+ExtCommunities teCommunity = new ExtCommunities(teBuffer);
+类型说明
+类型高位	子类型	格式	用途
+0x00	0x02	AS:VALUE	路由目标
+0x01	-	IP:VALUE	IPv4 格式
+0x02	0x03	AS:VALUE	路由起源
+注意事项
+解析限制 - 当前实现只处理部分扩展社区类型
+
+扩展性 - 可能需要扩展以支持新的扩展社区类型
+
+字节序 - 正确处理网络字节序
+
+在 MRT 解析中的位置
+在 Attributes.java 中处理：
+
+java
+case MRTConstants.EXT_COMMUNITIES:
+    Attribute extCommunities = new ExtCommunities(buffer);
+    attributes.set(MRTConstants.ATTRIBUTE_EXT_COMMUNITIES, extCommunities);
+    break;
+这两个类分别提供了 BGP RIB 结束标记和扩展社区属性的完整支持，适用于复杂的 BGP 场景如 MPLS VPN 和流量工程。
