@@ -1,0 +1,140 @@
+BGP 属性类
+ClusterId - 集群 ID 属性
+处理 BGP 路由反射器的集群 ID 属性。
+
+构造函数
+java
+ClusterId(byte[] buffer)
+主要方法
+toString() - 返回集群 ID 的字符串表示（格式：id1:id2:id3）
+
+equals() - 比较两个 ClusterId 对象是否相等
+
+内部结构
+rcid[] - 整数数组存储集群 ID
+
+clusterId - 缓存的字符串表示
+
+使用示例
+java
+byte[] buffer = new byte[] {0x00, 0x01, 0x00, 0x02}; // 2个集群ID: 1, 2
+ClusterId clusterId = new ClusterId(buffer);
+System.out.println(clusterId.toString()); // 输出: "1:2"
+ClusterList - 集群列表属性
+处理 BGP 路由反射器的集群列表属性，包含一系列 IPv4 地址。
+
+构造函数
+java
+ClusterList(byte[] buffer) throws Exception
+主要方法
+toString() - 返回集群列表的字符串表示（IPv4 地址空格分隔）
+
+equals() - 比较两个 ClusterList 对象是否相等
+
+内部结构
+clusterList[] - InetAddress 数组存储集群 IP 地址
+
+使用示例
+java
+byte[] buffer = new byte[] {
+    192, 168, 1, 1,    // 192.168.1.1
+    10, 0, 0, 1         // 10.0.0.1
+};
+ClusterList clusterList = new ClusterList(buffer);
+System.out.println(clusterList.toString()); // 输出: "192.168.1.1 10.0.0.1"
+Community - BGP 社区属性
+处理 BGP 社区属性，支持标准社区和知名社区。
+
+知名社区常量
+java
+NO_EXPORT = 0xFFFFFF01           // no_export
+NO_ADVERTISE = 0xFFFFFF02        // no_advertise  
+NO_EXPORT_SUBCONFED = 0xFFFFFF03 // no_export_subconfed
+NOPEER = 0xFFFFFF04              // no_peer
+构造函数
+java
+Community(byte[] buffer)  // 从字节数组创建
+Community.empty()         // 创建空社区（静态方法）
+主要方法
+toString() - 返回社区属性的字符串表示
+
+equals() - 比较两个 Community 对象是否相等
+
+empty() - 创建空的社区对象（静态方法）
+
+格式说明
+标准社区: AS:VALUE 格式（如 64512:100）
+
+知名社区: 转换为易读名称（如 no_export）
+
+使用示例
+java
+// 创建标准社区
+byte[] buffer1 = new byte[] {0x00, 0x01, 0x00, 0x64}; // AS1:100
+Community comm1 = new Community(buffer1);
+System.out.println(comm1.toString()); // 输出: "1:100"
+
+// 创建知名社区
+byte[] buffer2 = new byte[] {(byte)0xFF, (byte)0xFF, (byte)0xFF, 0x01}; // no_export
+Community comm2 = new Community(buffer2);
+System.out.println(comm2.toString()); // 输出: "no_export"
+
+// 多个社区
+byte[] buffer3 = new byte[] {
+    0x00, 0x01, 0x00, 0x64,     // 1:100
+    (byte)0xFF, (byte)0xFF, (byte)0xFF, 0x01  // no_export
+};
+Community comm3 = new Community(buffer3);
+System.out.println(comm3.toString()); // 输出: "1:100 no_export"
+
+// 空社区
+Community emptyComm = Community.empty();
+System.out.println(emptyComm.toString()); // 输出空字符串
+在 BGP 更新中的使用
+这些属性通常在 BGP 更新消息的 Attributes 对象中使用：
+
+java
+// 读取 MRT 文件
+BGPFileReader reader = new BGPFileReader("updates.mrt");
+MRTRecord record;
+
+while ((record = reader.readNext()) != null) {
+    if (record instanceof Advertisement) {
+        Advertisement adv = (Advertisement) record;
+        Attributes attrs = adv.getAttributes();
+        
+        // 获取社区属性
+        Community community = attrs.getCommunity();
+        if (community != null) {
+            System.out.println("社区: " + community.toString());
+        }
+        
+        // 检查其他属性...
+    }
+}
+属性输出格式
+ClusterId
+text
+1:2:3        // 多个集群ID用冒号分隔
+ClusterList
+text
+192.168.1.1 10.0.0.1  // IPv4地址用空格分隔
+Community
+text
+64512:100 no_export    // 标准社区和知名社区混合
+1:100 2:200 no_peer    // 多个社区用空格分隔
+相等性比较
+所有属性类都正确实现了 equals() 和 hashCode() 方法，可以用于集合操作和比较：
+
+java
+Community comm1 = new Community(buffer1);
+Community comm2 = new Community(buffer2);
+
+if (comm1.equals(comm2)) {
+    // 社区属性相同
+}
+
+// 在集合中使用
+Set<Community> communitySet = new HashSet<>();
+communitySet.add(comm1);
+这些属性类提供了完整的 BGP 扩展属性支持，特别适用于路由反射器和策略路由等高级 BGP 功能。

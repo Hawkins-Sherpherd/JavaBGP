@@ -1,0 +1,143 @@
+IndexTable - 对等体索引表
+IndexTable 类用于解析和处理 MRT TABLE_DUMP_V2 格式中的对等体索引表，该表包含路由收集器观测到的所有 BGP 对等体信息。
+
+类概述
+对等体索引表是 TABLE_DUMP_V2 格式的重要组成部分，它：
+
+存储所有 BGP 对等体的基本信息
+
+通过索引号引用对等体，减少数据冗余
+
+支持 IPv4 和 IPv6 对等体
+
+支持 2 字节和 4 字节 AS 号
+
+构造函数
+java
+IndexTable(byte[] record)
+数据结构
+MRT 记录格式
+text
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Collector BGP ID                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|        View Name Length       |     View Name (variable)      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|          Peer Count           |    Peer Entries (variable)    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+对等体条目格式
+text
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|   Peer Type   |                 Peer BGP ID                   |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Peer IP Address (variable)                    |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Peer AS (variable)                            |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+对等体类型 (Peer Type)
+对等体类型是一个位掩码字段：
+
+位	值	含义
+0	1	对等体 IP 地址类型：0=IPv4(4字节), 1=IPv6(16字节)
+1	2	对等体 AS 号大小：0=16位(2字节), 1=32位(4字节)
+主要方法
+获取对等体信息
+java
+long[] getPeerBgp()      // 获取所有对等体的 BGP ID 数组
+long[] getPeerAs()       // 获取所有对等体的 AS 号数组
+Vector<InetAddress> getPeerIp()  // 获取所有对等体的 IP 地址向量
+byte[] getViewName()     // 获取视图名称（当前未完全实现）
+内部字段
+java
+private byte[] viewName;           // 视图名称
+private byte[] record;             // 原始记录数据
+private long[] peerBgp;            // 对等体 BGP ID 数组
+private long[] peerAs;             // 对等体 AS 号数组
+private Vector<InetAddress> peerIp; // 对等体 IP 地址向量
+private InetAddress takeIp;        // 临时 IP 地址变量
+private int peerCount;             // 对等体数量
+使用示例
+基本使用
+java
+// 在 BGPFileReader 中解析对等体索引表
+case MRTConstants.PEER_INDEX_TABLE:
+    IndexTable indexTable = new IndexTable(record);
+    
+    // 获取对等体信息
+    long[] bgpIds = indexTable.getPeerBgp();
+    long[] asNumbers = indexTable.getPeerAs();
+    Vector<InetAddress> ipAddresses = indexTable.getPeerIp();
+    
+    // 打印对等体信息
+    for (int i = 0; i < bgpIds.length; i++) {
+        System.out.printf("对等体 %d: BGP_ID=%d, AS=%d, IP=%s%n",
+            i, bgpIds[i], asNumbers[i], ipAddresses.get(i).getHostAddress());
+    }
+    break;
+在 TABLE_DUMP_V2 中的应用
+java
+// 解析 RIB 记录时使用对等体索引
+int peerIndex = RecordAccess.getU16(record, offset);
+InetAddress peerIP = indexTable.getPeerIp().get(peerIndex);
+long peerAS = indexTable.getPeerAs()[peerIndex];
+
+// 创建 TableDumpv2 记录
+TableDumpv2 ribEntry = new TableDumpv2(
+    view, sequenceNo, nlri, time, 
+    peerIP, new AS(peerAS), attributes, header, record
+);
+实际数据示例
+假设 MRT 文件包含以下对等体索引表：
+
+text
+Collector BGP ID: 192.168.1.1
+View Name: "rrc00"
+Peer Count: 2
+
+对等体 0:
+  Peer Type: 0x00 (IPv4, 16-bit AS)
+  BGP ID: 10.0.0.1
+  IP: 203.0.113.1
+  AS: 64512
+
+对等体 1:
+  Peer Type: 0x03 (IPv6, 32-bit AS)  
+  BGP ID: 10.0.0.2
+  IP: 2001:db8::1
+  AS: 65550
+在 MRT 解析流程中的位置
+文件读取 → BGPFileReader.readNext()
+
+识别类型 → TABLE_DUMP_V2 + PEER_INDEX_TABLE
+
+创建索引表 → new IndexTable(record)
+
+存储引用 → 供后续 RIB 记录使用
+
+RIB 解析 → 使用索引引用对等体信息
+
+注意事项
+内存使用 - 对等体索引表通常不大，但需要妥善管理
+
+索引有效性 - 需要确保 RIB 记录中的索引在有效范围内
+
+地址族混合 - 支持 IPv4 和 IPv6 对等体共存
+
+AS 号大小 - 正确处理 2 字节和 4 字节 AS 号
+
+相关常量
+在 MRTConstants.java 中：
+
+TABLE_DUMP_V2 = 13
+
+PEER_INDEX_TABLE = 1
+
+AFI_IPv4 = 1
+
+AFI_IPv6 = 2
+
+IndexTable 类是 TABLE_DUMP_V2 格式解析的核心组件，它通过索引机制显著减少了 MRT 文件的大小，提高了数据存储和传输的效率。
