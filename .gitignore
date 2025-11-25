@@ -29,3 +29,7 @@ buildNumber.properties
 *.zip
 *.tar.gz
 *.rar
+
+# Exception: Track JAR files in lib/ directory
+!lib/
+!lib/*.jar

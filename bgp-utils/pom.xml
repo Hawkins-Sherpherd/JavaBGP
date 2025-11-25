@@ -18,6 +18,8 @@
             <groupId>net.apnic.mrt</groupId>
             <artifactId>mrt</artifactId>
             <version>0.0.2-RIPE-16</version>
+            <scope>system</scope>
+            <systemPath>${project.basedir}/../lib/mrt-0.0.2-RIPE-16.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.github.seancfoley</groupId>
