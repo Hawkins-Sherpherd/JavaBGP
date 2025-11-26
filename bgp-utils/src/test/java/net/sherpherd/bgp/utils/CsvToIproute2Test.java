@@ -38,7 +38,7 @@ public class CsvToIproute2Test {
             if (prefix.isEmpty()) continue;
             // only handle IPv4 prefixes in this test
             if (!Analysis.isValidIPv4Cidr(prefix)) continue;
-            out.addRoute(prefix, "192.168.0.1/32");
+            out.addRoute(prefix, "192.168.0.1");  // 修改：直接传入IP地址，不带/32
             written++;
         }
 
@@ -54,6 +54,7 @@ public class CsvToIproute2Test {
             assertTrue("Script should contain the first prefix", content.contains(firstPrefix));
         }
     }
+    
     @Test
     public void testCsvToIproute2ScriptGenerationIPv6() throws Exception {
         // locate CSV resource inside test resources
@@ -81,7 +82,7 @@ public class CsvToIproute2Test {
             if (prefix.isEmpty()) continue;
             // only handle IPv6 prefixes in this test
             if (!Analysis.isValidIPv6Cidr(prefix)) continue;
-            out.addRoute(prefix, "2001:db8::1/128");
+            out.addRoute(prefix, "2001:db8::1");  // 修改：直接传入IPv6地址，不带/128
             written++;
         }
 
