@@ -33,4 +33,12 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <testResources>
+            <testResource>
+                <directory>src/test/java/net/sherpherd/bgp/utils/resources</directory>
+            </testResource>
+        </testResources>
+    </build>
 </project>
