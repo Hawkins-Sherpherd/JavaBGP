@@ -130,7 +130,10 @@ class CSVProvider extends DataProvider {
 
     @Override
     public void setRoute(int index, String[] routeData) {
-        if (index >= 0 && index < routes.size()) {
+        if (index == -1) {
+            // -1 表示追加到末尾
+            routes.add(routeData);
+        } else if (index >= 0 && index < routes.size()) {
             routes.set(index, routeData);
         } else if (index == routes.size()) {
             routes.add(routeData);
@@ -261,7 +264,10 @@ class RawTextProvider extends DataProvider {
             throw new IllegalArgumentException("路由数据不能为空");
         }
         
-        if (index >= 0 && index < routes.size()) {
+        if (index == -1) {
+            // -1 表示追加到末尾
+            routes.add(routeData[0]);
+        } else if (index >= 0 && index < routes.size()) {
             routes.set(index, routeData[0]);
         } else if (index == routes.size()) {
             routes.add(routeData[0]);
