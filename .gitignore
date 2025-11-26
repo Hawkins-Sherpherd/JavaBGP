@@ -33,3 +33,6 @@ buildNumber.properties
 # Exception: Track JAR files in lib/ directory
 !lib/
 !lib/*.jar
+
+# Ignore specific stray test helper under main sources
+bgp-utils/src/main/java/net/sherpherd/bgp/utils/test.java
