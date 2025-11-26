@@ -1,3 +1,4 @@
+// Analysis.java 保持不变
 package net.sherpherd.bgp.utils;
 
 import java.io.BufferedReader;
@@ -95,7 +96,7 @@ public class Analysis {
         return s;
     }
 
-    private static boolean isValidIPv4Cidr(String s) {
+    protected static boolean isValidIPv4Cidr(String s) {
         if (s == null) return false;
         String[] parts = s.split("/");
         if (parts.length != 2) return false;
@@ -163,7 +164,7 @@ public class Analysis {
     }
 
     // --- IPv6 helpers and methods ---
-    private static boolean isValidIPv6Cidr(String s) {
+    protected static boolean isValidIPv6Cidr(String s) {
         if (s == null) return false;
         String[] parts = s.split("/");
         if (parts.length != 2) return false;
