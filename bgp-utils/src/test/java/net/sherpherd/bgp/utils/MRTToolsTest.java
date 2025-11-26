@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 
 import static org.junit.Assert.*;
 
@@ -14,7 +13,7 @@ public class MRTToolsTest {
     @Test
     public void testMrtToCSVFromResources() throws Exception {
         // locate resource inside test resources
-        String resourcePath = "/net/sherpherd/bgp/utils/resources/updates.20251125.0000";
+        String resourcePath = "/updates.20251125.0000";
         InputStream in = getClass().getResourceAsStream(resourcePath);
         assertNotNull("Test MRT resource must exist: " + resourcePath, in);
 
@@ -29,8 +28,9 @@ public class MRTToolsTest {
             in.close();
         }
 
-        // output CSV path inside test resources as requested
-        File outCsv = Paths.get("src/test/java/net/sherpherd/bgp/utils/resources/output.csv").toFile();
+        // output CSV path inside test resources (relative to resource directory)
+        File outCsv = new File(getClass().getResource(resourcePath).getPath());
+        outCsv = new File(outCsv.getParent(), "output.csv");
         // ensure parent exists
         outCsv.getParentFile().mkdirs();
         if (outCsv.exists()) outCsv.delete();
