@@ -3,6 +3,8 @@ package net.sherpherd.bgp.utils;
 
 import java.io.*;
 import java.util.*;
+import org.javamrt.mrt.BGPFileReader;
+import org.javamrt.mrt.MRTRecord;
 
 public abstract class DataProvider {
     protected String path;
@@ -323,18 +325,19 @@ class Iproute2ScriptProvider extends DataProvider {
     }
 
     public void addRoute(String prefix, String nexthop) {
-        // 输入验证：prefix和nexthop必须同时是相同地址家族的合法IPv4/IPv6 CIDR
+        // 输入验证：prefix必须是合法的IPv4/IPv6 CIDR
         if (!isValidCIDR(prefix)) {
             throw new IllegalArgumentException("无效的prefix: " + prefix);
         }
         
-        if (!isValidCIDR(nexthop)) {
+        // 输入验证：nexthop必须是合法的IPv4/IPv6地址（不带前缀长度）
+        if (!isValidIPAddress(nexthop)) {
             throw new IllegalArgumentException("无效的nexthop: " + nexthop);
         }
         
         // 检查地址家族是否相同
         boolean prefixIsIPv4 = Analysis.isValidIPv4Cidr(prefix);
-        boolean nexthopIsIPv4 = Analysis.isValidIPv4Cidr(nexthop);
+        boolean nexthopIsIPv4 = isIPv4Address(nexthop);
         
         if (prefixIsIPv4 != nexthopIsIPv4) {
             throw new IllegalArgumentException("prefix和nexthop必须属于相同的地址家族");
@@ -342,9 +345,9 @@ class Iproute2ScriptProvider extends DataProvider {
         
         String command;
         if (prefixIsIPv4) {
-            command = String.format("ip route add %s via %s", prefix, extractIP(nexthop));
+            command = String.format("ip route add %s via %s", prefix, nexthop);
         } else {
-            command = String.format("ip -6 route add %s via %s", prefix, extractIP(nexthop));
+            command = String.format("ip -6 route add %s via %s", prefix, nexthop);
         }
         
         scripts.add(command);
@@ -362,7 +365,193 @@ class Iproute2ScriptProvider extends DataProvider {
         return Analysis.isValidIPv4Cidr(cidr) || Analysis.isValidIPv6Cidr(cidr);
     }
 
-    private String extractIP(String cidr) {
-        return cidr.split("/")[0];
+    /**
+     * 验证是否为合法的IPv4或IPv6地址（不带CIDR前缀）
+     */
+    private boolean isValidIPAddress(String ip) {
+        if (ip == null || ip.isEmpty() || ip.contains("/")) {
+            return false;
+        }
+        return isIPv4Address(ip) || isIPv6Address(ip);
+    }
+
+    /**
+     * 验证是否为合法的IPv4地址
+     */
+    private boolean isIPv4Address(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return false;
+        }
+        String[] octets = ip.split("\\.");
+        if (octets.length != 4) {
+            return false;
+        }
+        try {
+            for (String octet : octets) {
+                int value = Integer.parseInt(octet);
+                if (value < 0 || value > 255) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 验证是否为合法的IPv6地址
+     */
+    private boolean isIPv6Address(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return false;
+        }
+        try {
+            java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
+            return addr.getAddress().length == 16;
+        } catch (java.net.UnknownHostException e) {
+            return false;
+        }
+    }
+}
+
+// 在 DataProvider 类的末尾添加 MRTProvider 子类
+class MRTProvider extends DataProvider {
+    private BGPFileReader mrtReader;
+    private InputStream inputStream;
+    private MRTRecord currentRecord;
+    private boolean initialized = false;
+
+    public MRTProvider(String path) {
+        super(path);
+        initialize();
+    }
+
+    private void initialize() {
+        try {
+            inputStream = new BufferedInputStream(new FileInputStream(path));
+            mrtReader = new BGPFileReader(inputStream);
+            initialized = true;
+        } catch (IOException e) {
+            if (verbose) {
+                System.err.println("初始化MRTProvider失败: " + e.getMessage());
+            }
+            initialized = false;
+        }
+    }
+
+    @Override
+    public String[] getNextRoute() {
+        if (!initialized || mrtReader == null) {
+            return null;
+        }
+
+        try {
+            currentRecord = mrtReader.readNext();
+            if (currentRecord == null) {
+                return null;
+            }
+
+            String[] route = getRouteFromMRTRecord(currentRecord);
+            String prefix = route[0];
+            String asPath = route[1];
+
+            // 过滤默认路由和无效条目
+            if (prefix.equals("0.0.0.0/0") || prefix.equals("::/0") || 
+                !isValidCIDR(prefix) || !isValidAsPath(asPath)) {
+                if (verbose) {
+                    System.err.println("跳过无效路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                }
+                return getNextRoute(); // 递归获取下一个有效路由
+            }
+
+            return route;
+        } catch (Exception e) {
+            if (verbose) {
+                System.err.println("读取MRT记录失败: " + e.getMessage());
+            }
+            return null;
+        }
+    }
+
+    @Override
+    public void setRoute(int index, String[] routeData) {
+        // MRTProvider 是只读的，不支持设置路由
+        throw new UnsupportedOperationException("MRTProvider 不支持设置路由");
+    }
+
+    @Override
+    public String[] getRoute(int index) {
+        // MRTProvider 不支持按索引获取路由
+        throw new UnsupportedOperationException("MRTProvider 不支持按索引获取路由");
+    }
+
+    public void close() {
+        try {
+            if (mrtReader != null) {
+                mrtReader.close();
+            }
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        } catch (IOException e) {
+            if (verbose) {
+                System.err.println("关闭MRTProvider失败: " + e.getMessage());
+            }
+        }
+    }
+
+    private String[] getRouteFromMRTRecord(MRTRecord record) {
+        if (record == null) return new String[]{"", ""};
+        
+        String prefix = "";
+        String asPath = "";
+        
+        try {
+            // 尝试使用 getPrefix() 和 getASPath() 方法
+            Object prefixObj = record.getPrefix();
+            Object asPathObj = record.getASPath();
+            
+            if (prefixObj != null) prefix = prefixObj.toString();
+            if (asPathObj != null) asPath = asPathObj.toString();
+        } catch (Exception e) {
+            // 回退到字符串解析
+            String recordStr = record.toString();
+            String[] parts = recordStr.split("\\|");
+            if (parts.length > 5) prefix = parts[5];
+            if (parts.length > 6) asPath = parts[6];
+        }
+        
+        return new String[]{prefix != null ? prefix.trim() : "", 
+                           asPath != null ? asPath.trim() : ""};
+    }
+
+    private boolean isValidCIDR(String cidr) {
+        return Analysis.isValidIPv4Cidr(cidr) || Analysis.isValidIPv6Cidr(cidr);
+    }
+
+    private boolean isValidAsPath(String aspath) {
+        if (aspath == null || aspath.trim().isEmpty()) {
+            return false;
+        }
+        
+        String[] asns = aspath.trim().split("\\s+");
+        final long MAX_ASN = 0xFFFFFFFFL;
+        
+        for (String asn : asns) {
+            if (!asn.matches("\\d+")) {
+                return false;
+            }
+            try {
+                long value = Long.parseLong(asn);
+                if (value < 0 || value > MAX_ASN) {
+                    return false;
+                }
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        
+        return true;
     }
 }
