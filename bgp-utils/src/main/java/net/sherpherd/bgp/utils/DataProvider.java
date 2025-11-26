@@ -453,31 +453,30 @@ class MRTProvider extends DataProvider {
         }
 
         try {
-            currentRecord = mrtReader.readNext();
-            if (currentRecord == null) {
-                return null;
-            }
+            while ((currentRecord = mrtReader.readNext()) != null) {
+                String[] route = getRouteFromMRTRecord(currentRecord);
+                String prefix = route[0];
+                String asPath = route[1];
 
-            String[] route = getRouteFromMRTRecord(currentRecord);
-            String prefix = route[0];
-            String asPath = route[1];
-
-            // 过滤默认路由和无效条目
-            if (prefix.equals("0.0.0.0/0") || prefix.equals("::/0") || 
-                !isValidCIDR(prefix) || !isValidAsPath(asPath)) {
-                if (verbose) {
-                    System.err.println("跳过无效路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                // 过滤默认路由、无效条目和空AS_PATH
+                if (prefix.equals("0.0.0.0/0") || prefix.equals("::/0") || 
+                    !isValidCIDR(prefix) || !isValidAsPath(asPath) ||
+                    asPath == null || asPath.trim().isEmpty()) { // 新增空AS_PATH检查
+                    if (verbose) {
+                        System.err.println("跳过无效路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                    }
+                    continue; // 继续读取下一条记录
                 }
-                return getNextRoute(); // 递归获取下一个有效路由
-            }
 
-            return route;
+                return route;
+            }
         } catch (Exception e) {
             if (verbose) {
                 System.err.println("读取MRT记录失败: " + e.getMessage());
             }
-            return null;
         }
+        
+        return null;
     }
 
     @Override
@@ -493,19 +492,26 @@ class MRTProvider extends DataProvider {
     }
 
     public void close() {
-        try {
-            if (mrtReader != null) {
-                mrtReader.close();
-            }
-            if (inputStream != null) {
-                inputStream.close();
-            }
-        } catch (IOException e) {
-            if (verbose) {
-                System.err.println("关闭MRTProvider失败: " + e.getMessage());
-            }
+    try {
+        if (mrtReader != null) {
+            mrtReader.close();
+            mrtReader = null; // 清理引用
+        }
+        if (inputStream != null) {
+            inputStream.close();
+            inputStream = null; // 清理引用
+        }
+    } catch (IOException e) {
+        if (verbose) {
+            System.err.println("关闭MRTProvider失败: " + e.getMessage());
+        }
+    } catch (NullPointerException e) {
+        // 处理可能的NPE，记录但不抛出
+        if (verbose) {
+            System.err.println("MRTProvider关闭时遇到空指针，可能已部分初始化: " + e.getMessage());
         }
     }
+}
 
     private String[] getRouteFromMRTRecord(MRTRecord record) {
         if (record == null) return new String[]{"", ""};
