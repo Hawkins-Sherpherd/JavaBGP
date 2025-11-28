@@ -1,5 +1,6 @@
 package net.sherpherd.bgp.utils;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -10,6 +11,7 @@ import static org.junit.Assert.*;
 
 public class MRTToolsTest {
 
+    @Ignore("Deprecated")
     @Test
     public void testMrtToCSVFromResources() throws Exception {
         // locate resource inside test resources

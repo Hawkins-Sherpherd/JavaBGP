@@ -1,7 +1,6 @@
 package net.sherpherd.bgp.utils;
 
 import org.junit.Test;
-
 import java.io.File;
 import java.net.URL;
 import java.nio.file.Files;
@@ -24,11 +23,16 @@ public class CsvToIproute2Test {
         // create output script path next to the CSV resource
         File csvFile = new File(csvPath);
         File outScript = new File(csvFile.getParentFile(), "iproute2test.sh");
-        if (outScript.exists()) outScript.delete();
+        
+        // *** 修复1：使用 prepareOutputFile 来准备输出文件 ***
+        prepareOutputFile(outScript.getAbsolutePath());
 
         // run conversion: read CSV prefixes and write iproute2 commands with nexthop 192.168.0.1
         CSVProvider csv = new CSVProvider(csvPath);
         Iproute2ScriptProvider out = new Iproute2ScriptProvider(outScript.getAbsolutePath());
+        
+        // *** 修复2：初始化 writer ***
+        out.initializeWriter();
 
         String[] route;
         int written = 0;
@@ -38,7 +42,7 @@ public class CsvToIproute2Test {
             if (prefix.isEmpty()) continue;
             // only handle IPv4 prefixes in this test
             if (!Analysis.isValidIPv4Cidr(prefix)) continue;
-            out.addRoute(prefix, "192.168.0.1/32");
+            out.addRoute(prefix, "192.168.0.1");
             written++;
         }
 
@@ -54,6 +58,7 @@ public class CsvToIproute2Test {
             assertTrue("Script should contain the first prefix", content.contains(firstPrefix));
         }
     }
+    
     @Test
     public void testCsvToIproute2ScriptGenerationIPv6() throws Exception {
         // locate CSV resource inside test resources
@@ -67,11 +72,16 @@ public class CsvToIproute2Test {
         // create output script path next to the CSV resource
         File csvFile = new File(csvPath);
         File outScript = new File(csvFile.getParentFile(), "iproute2test6.sh");
-        if (outScript.exists()) outScript.delete();
+        
+        // *** 修复1：使用 prepareOutputFile 来准备输出文件 ***
+        prepareOutputFile(outScript.getAbsolutePath());
 
         // run conversion: read CSV prefixes and write iproute2 commands with nexthop 2001:db8::1
         CSVProvider csv = new CSVProvider(csvPath);
         Iproute2ScriptProvider out = new Iproute2ScriptProvider(outScript.getAbsolutePath());
+        
+        // *** 修复2：初始化 writer ***
+        out.initializeWriter();
 
         String[] route;
         int written = 0;
@@ -81,7 +91,7 @@ public class CsvToIproute2Test {
             if (prefix.isEmpty()) continue;
             // only handle IPv6 prefixes in this test
             if (!Analysis.isValidIPv6Cidr(prefix)) continue;
-            out.addRoute(prefix, "2001:db8::1/128");
+            out.addRoute(prefix, "2001:db8::1");
             written++;
         }
 
@@ -94,6 +104,49 @@ public class CsvToIproute2Test {
         if (written > 0) {
             // verify the script contains the IPv6 nexthop
             assertTrue("Script should contain the IPv6 nexthop", content.contains("2001:db8::1"));
+        }
+    }
+    
+    /**
+     * 准备输出文件：如果不存在则创建，如果存在则覆盖
+     */
+    private static void prepareOutputFile(String path) {
+        File file = new File(path);
+        
+        // 如果文件已存在，删除它（准备覆盖写入）
+        if (file.exists()) {
+            if (!file.delete()) {
+                // Windows文件锁定问题的变通方案：尝试多次删除
+                System.gc(); // 强制垃圾回收，释放可能的文件句柄
+                try { Thread.sleep(100); } catch (InterruptedException e) {}
+                
+                if (!file.delete()) {
+                    System.err.println("警告: 无法删除已存在的输出文件，尝试覆盖: " + path);
+                    // 不抛出异常，让后续写入操作尝试覆盖
+                    return;
+                }
+            }
+            System.out.println("已删除现有输出文件: " + path);
+        }
+        
+        // 确保父目录存在
+        File parentDir = file.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            if (!parentDir.mkdirs()) {
+                throw new RuntimeException("无法创建输出文件的父目录: " + parentDir.getAbsolutePath());
+            }
+            System.out.println("已创建输出目录: " + parentDir.getAbsolutePath());
+        }
+        
+        // 创建空文件
+        try {
+            if (!file.createNewFile()) {
+                System.err.println("警告: 文件已存在，将被覆盖: " + path);
+            } else {
+                System.out.println("已创建输出文件: " + path);
+            }
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("创建输出文件失败: " + path + " - " + e.getMessage(), e);
         }
     }
 }
