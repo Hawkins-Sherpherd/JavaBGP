@@ -25,7 +25,7 @@ public class Main {
                     processCSVToRawText();
                     break;
                 case "4":
-                    processCSVToIproute2();
+                    processRawTextToIproute2();
                     break;
                 case "5":
                     toggleVerbose();
@@ -44,7 +44,7 @@ public class Main {
         System.out.println("1. 从 MRT 文件提取路由到 CSV");
         System.out.println("2. 从 CSV 文件提取路由到 CSV");
         System.out.println("3. 从 CSV 文件提取路由到纯文本");
-        System.out.println("4. 从 CSV 文件生成 iproute2 路由添加脚本");
+        System.out.println("4. 从纯文本文件生成 iproute2 路由添加脚本");
         System.out.println("5. 启用调试输出（当前模式：" + (verbose ? "开启" : "关闭") + "）");
         System.out.println("6. 退出程序");
         System.out.print("请选择操作 (1-6): ");
@@ -140,8 +140,8 @@ public class Main {
         }
     }
     
-    private static void processCSVToIproute2() {
-        System.out.println("\n=== 从 CSV 文件生成 iproute2 路由添加脚本 ===");
+    private static void processRawTextToIproute2() {
+        System.out.println("\n=== 从纯文本文件生成 iproute2 路由添加脚本 ===");
         
         String inputFile = getInput("输入文件: ");
         String outputFile = getInput("输出文件: ");

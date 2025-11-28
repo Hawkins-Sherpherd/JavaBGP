@@ -516,18 +516,30 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
 
     public void addRoute(String prefix, String nexthop) {
         if (!Analysis.isValidCIDR(prefix)) {
-            throw new IllegalArgumentException("无效的prefix: " + prefix);
+            if (verbose) {
+                System.err.println("跳过无效prefix: " + prefix);
+            }
+            return; // 跳过无效prefix
         }
         
         if (!Analysis.isValidIPAddress(nexthop)) {
-            throw new IllegalArgumentException("无效的nexthop: " + nexthop);
+            if (verbose) {
+                System.err.println("跳过无效nexthop: " + nexthop);
+            }
+            return; // 跳过无效nexthop
         }
         
         boolean prefixIsIPv4 = Analysis.isValidIPv4Cidr(prefix);
         boolean nexthopIsIPv4 = Analysis.isValidIPv4Address(nexthop);
         
+        // 当prefix和nexthop不属于同一地址家族时，跳过这条路由
         if (prefixIsIPv4 != nexthopIsIPv4) {
-            throw new IllegalArgumentException("prefix和nexthop必须属于相同的地址家族");
+            if (verbose) {
+                System.err.println("跳过地址家族不匹配的路由: prefix=" + prefix + " (" + 
+                                 (prefixIsIPv4 ? "IPv4" : "IPv6") + "), nexthop=" + nexthop + 
+                                 " (" + (nexthopIsIPv4 ? "IPv4" : "IPv6") + ")");
+            }
+            return;
         }
         
         String command;
@@ -541,6 +553,10 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
         if (writer != null) {
             writer.println(command);
             writer.flush();
+        }
+        
+        if (verbose) {
+            System.out.println("添加路由命令: " + command);
         }
     }
 
