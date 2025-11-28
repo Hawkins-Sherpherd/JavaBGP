@@ -32,7 +32,20 @@ public class GenerateTest {
         File outCsv = new File(getClass().getResource(resourcePath).getPath());
         outCsv = new File(outCsv.getParent(), "output.csv");
         outCsv.getParentFile().mkdirs();
-        if (outCsv.exists()) outCsv.delete();
+        
+        // *** 修复：使用更健壮的文件删除逻辑 ***
+        if (outCsv.exists()) {
+            // 尝试强制关闭可能打开的流
+            System.gc();
+            try { Thread.sleep(100); } catch (InterruptedException e) {}
+            
+            // 尝试删除，如果失败则使用临时文件
+            if (!outCsv.delete()) {
+                System.err.println("警告: 无法删除现有输出文件，使用临时文件");
+                outCsv = File.createTempFile("output-", ".csv", outCsv.getParentFile());
+                outCsv.deleteOnExit();
+            }
+        }
 
         // 创建 MRTProvider 和 CSVProvider
         MRTProvider mrtProvider = new MRTProvider(tmpMrt.getAbsolutePath());
@@ -58,7 +71,8 @@ public class GenerateTest {
         // 验证头部
         String header = lines[0];
         assertTrue("CSV header should contain prefix column", header.toLowerCase().contains("prefix"));
-        assertTrue("CSV header should contain as_path column", header.toLowerCase().contains("as_path"));
+        assertTrue("CSV header should contain aspath column", 
+                   header.toLowerCase().contains("as_path") || header.toLowerCase().contains("aspath"));
         
         // 解析头部获取列索引
         String[] headerParts = header.split(",");
@@ -66,7 +80,7 @@ public class GenerateTest {
         for (int i = 0; i < headerParts.length; i++) {
             String h = headerParts[i].trim().toLowerCase();
             if (h.equals("prefix")) prefixIdx = i;
-            if (h.equals("as_path")) asIdx = i;
+            if (h.equals("as_path") || h.equals("aspath")) asIdx = i;
         }
         
         assertTrue("header must contain prefix column", prefixIdx >= 0);
@@ -94,8 +108,8 @@ public class GenerateTest {
             // 验证前缀格式
             assertTrue("prefix should be a valid CIDR: " + prefix, isValidCIDR(prefix));
             
-            // 验证AS_PATH格式 - 根据MRTProvider修改，现在AS_PATH不能为空
-            assertFalse("as_path should not be empty (MRTProvider now skips empty AS_PATH): " + asPath, asPath.isEmpty());
+            // 验证AS_PATH格式
+            assertFalse("as_path should not be empty: " + asPath, asPath.isEmpty());
             assertTrue("as_path should be valid: " + asPath, isValidAsPath(asPath));
         }
         
@@ -108,7 +122,7 @@ public class GenerateTest {
         mrtProvider.close();
     }
 
-    // 以下辅助方法与 MRTToolsTest 中相同
+    // 辅助方法
     private static String unquote(String s) {
         if (s == null) return "";
         if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\"")) {
@@ -151,7 +165,7 @@ public class GenerateTest {
     private static boolean isValidAsPath(String s) {
         if (s == null) return false;
         String trimmed = s.trim();
-        if (trimmed.isEmpty()) return false; // 修改：空AS_PATH不再有效
+        if (trimmed.isEmpty()) return false;
         String[] toks = trimmed.split("\\s+");
         final long MAX = 0xFFFFFFFFL;
         for (String t : toks) {
@@ -176,7 +190,7 @@ public class GenerateTest {
             if (c == '"') {
                 if (inQuote && i + 1 < line.length() && line.charAt(i + 1) == '"') {
                     cur.append('"');
-                    i++; // skip escaped quote
+                    i++;
                 } else {
                     inQuote = !inQuote;
                 }

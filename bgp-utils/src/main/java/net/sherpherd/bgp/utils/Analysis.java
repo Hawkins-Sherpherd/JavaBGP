@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+// import java.util.regex.Pattern;
+// import java.util.regex.PatternSyntaxException;
 
 public class Analysis {
 
@@ -96,7 +98,7 @@ public class Analysis {
         return s;
     }
 
-    protected static boolean isValidIPv4Cidr(String s) {
+    public static boolean isValidIPv4Cidr(String s) {
         if (s == null) return false;
         String[] parts = s.split("/");
         if (parts.length != 2) return false;
@@ -164,7 +166,7 @@ public class Analysis {
     }
 
     // --- IPv6 helpers and methods ---
-    protected static boolean isValidIPv6Cidr(String s) {
+    public static boolean isValidIPv6Cidr(String s) {
         if (s == null) return false;
         String[] parts = s.split("/");
         if (parts.length != 2) return false;
@@ -311,44 +313,62 @@ public class Analysis {
         return result;
     }
 
-    /**
-     * 判断给定的 AS path 字符串是否匹配指定的正则表达式。
-     * - 当任意子串匹配正则表达式时返回 true（使用 Matcher.find()），否则返回 false。
-     * - 对输入做了基本规范化：去除首尾空白并将连续空白折叠为单个空格。
-     * - 如果任一参数为 null 或正则语法不合法，则返回 false。
-     */
-    public static boolean aspathRegex(String as_path, String regex) {
-        if (as_path == null || regex == null) return false;
-        // 规范化：去除首尾空白并将连续空白折叠为单个空格
-        String normalized = as_path.trim().replaceAll("\\s+", " ");
-        if (normalized.isEmpty()) return false;
+//     /**
+//  * 判断BGP AS_PATH属性是否匹配对应的正则表达式
+//  * @param aspath AS_PATH字符串，用空格隔开的32位无符号整数
+//  * @param regex 思科IOS风格的正则表达式
+//  * @return 如果aspath匹配regex则返回true，否则返回false
+//  * @throws IllegalArgumentException 如果传入参数不合法
+//  */
+// public static boolean aspathRegex(String aspath, String regex) {
+//     // 参数空值检查
+//     if (aspath == null) {
+//         throw new IllegalArgumentException("aspath不能为null");
+//     }
+//     if (regex == null) {
+//         throw new IllegalArgumentException("regex不能为null");
+//     }
+    
+//     // 检查aspath格式：用空格隔开的32位无符号整数
+//     validateAsPath(aspath);
+    
+//     try {
+//         // 使用 CiscoIOSRegex 类进行匹配
+//         CiscoIOSRegex ciscoRegex = new CiscoIOSRegex(regex);
+//         return ciscoRegex.matchesExact(aspath);
+//     } catch (Exception e) {
+//         throw new IllegalArgumentException("无效的正则表达式或匹配错误: " + regex, e);
+//     }
+// }
 
-        // 验证 as_path 每一项必须是 32 位无符号整数（0 .. 4294967295）
-        String[] tokens = normalized.split(" ");
-        final long MAX_UINT32 = 0xFFFFFFFFL; // 4294967295
-        for (String t : tokens) {
-            if (!t.matches("\\d+")) return false;
-            try {
-                long v = Long.parseLong(t);
-                if (v < 0 || v > MAX_UINT32) return false;
-            } catch (NumberFormatException ex) {
-                return false;
-            }
-        }
+// /**
+//  * 验证AS_PATH格式
+//  */
+// private static void validateAsPath(String aspath) {
+//     if (aspath.isEmpty()) {
+//         return; // 空路径是合法的
+//     }
+    
+//     String[] asNumbers = aspath.split(" ");
+    
+//     for (String asNumStr : asNumbers) {
+//         try {
+//             long asNum = Long.parseLong(asNumStr);
+//             // 检查是否为32位无符号整数 (0 到 4294967295)
+//             if (asNum < 0 || asNum > 4294967295L) {
+//                 throw new IllegalArgumentException(
+//                     "AS号码超出32位无符号整数范围: " + asNumStr);
+//             }
+//         } catch (NumberFormatException e) {
+//             throw new IllegalArgumentException(
+//                 "无效的AS号码格式: " + asNumStr, e);
+//         }
+//     }
+// }
 
-        // 为了更方便处理边界符（例如 Cisco 风格的 '_'），在两端加空格
-        String padded = " " + normalized + " ";
-        try {
-            // 支持一种常见扩展：下划线 '_' 表示 AS 边界（开始/结束或空白）。
-            // 将 '_' 替换为一个非捕获分组，匹配空白或字符串开始/结束。
-            String patternStr = regex.replace("_", "(?:\\s|^|$)");
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile(patternStr);
-            java.util.regex.Matcher m = p.matcher(padded);
-            return m.find();
-        } catch (java.util.regex.PatternSyntaxException ex) {
-            return false;
-        }
-    }
+// // 可以删除以下不再使用的方法：
+// // private static String convertCiscoRegexToJava(String ciscoRegex)
+// // private static String convertCiscoRegexToJavaPrecise(String ciscoRegex)
 
     /**
      * 返回聚合后网络可容纳的 /64 大小网络块数量
@@ -365,5 +385,107 @@ public class Analysis {
             total = total.add(num64);
         }
         return total;
+    }
+
+    // ========== 新增方法 ==========
+
+    /**
+     * 检查是否为有效的CIDR表示法（IPv4或IPv6）
+     */
+    public static boolean isValidCIDR(String cidr) {
+        return isValidIPv4Cidr(cidr) || isValidIPv6Cidr(cidr);
+    }
+
+    /**
+     * 检查是否为有效的AS_PATH
+     */
+    public static boolean isValidAsPath(String aspath) {
+        if (aspath == null || aspath.trim().isEmpty()) {
+            return false;
+        }
+        
+        String[] asns = aspath.trim().split("\\s+");
+        final long MAX_ASN = 0xFFFFFFFFL;
+        
+        for (String asn : asns) {
+            if (!asn.matches("\\d+")) {
+                return false;
+            }
+            try {
+                long value = Long.parseLong(asn);
+                if (value < 0 || value > MAX_ASN) {
+                    return false;
+                }
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    /**
+     * 检查是否为有效的IPv4地址（不含CIDR前缀）
+     */
+    public static boolean isValidIPv4Address(String ip) {
+        if (ip == null || ip.isEmpty() || ip.contains("/")) {
+            return false;
+        }
+        String[] octets = ip.split("\\.");
+        if (octets.length != 4) {
+            return false;
+        }
+        try {
+            for (String octet : octets) {
+                int value = Integer.parseInt(octet);
+                if (value < 0 || value > 255) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 检查是否为有效的IPv6地址（不含CIDR前缀）
+     */
+    public static boolean isValidIPv6Address(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return false;
+        }
+        try {
+            java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
+            return addr.getAddress().length == 16;
+        } catch (java.net.UnknownHostException e) {
+            return false;
+        }
+    }
+
+    /**
+     * 检查是否为有效的IP地址（IPv4或IPv6，不含CIDR前缀）
+     */
+    public static boolean isValidIPAddress(String ip) {
+        if (ip == null || ip.isEmpty() || ip.contains("/")) {
+            return false;
+        }
+        return isValidIPv4Address(ip) || isValidIPv6Address(ip);
+    }
+
+    /**
+     * 判断AS_PATH a是否比AS_PATH b更短
+     */
+    public static boolean isShorterAsPath(String a, String b) {
+        if (a == null || a.trim().isEmpty()) return false;
+        if (b == null || b.trim().isEmpty()) return true;
+        
+        String asA = a.trim();
+        String asB = b.trim();
+        
+        int lengthA = asA.split("\\s+").length;
+        int lengthB = asB.split("\\s+").length;
+        
+        return lengthA < lengthB;
     }
 }
