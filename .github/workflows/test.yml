@@ -20,5 +20,15 @@ jobs:
           distribution: 'temurin'
           cache: maven
       
+      - name: Install local MRT dependency
+        run: |
+          mvn install:install-file \
+            -Dfile=lib/mrt-0.0.2-RIPE-16.jar \
+            -DgroupId=net.apnic.mrt \
+            -DartifactId=mrt \
+            -Dversion=0.0.2-RIPE-16 \
+            -Dpackaging=jar \
+            -DgeneratePom=true
+      
       - name: Run tests
         run: mvn clean test

@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -13,13 +14,18 @@
     <artifactId>bgp-utils</artifactId>
     <packaging>jar</packaging>
 
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.encoding>UTF-8</maven.compiler.encoding>
+    </properties>
+
     <dependencies>
+        <!-- 修改为从 Maven 仓库获取，不再使用 system scope -->
         <dependency>
             <groupId>net.apnic.mrt</groupId>
             <artifactId>mrt</artifactId>
             <version>0.0.2-RIPE-16</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/../lib/mrt-0.0.2-RIPE-16.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>com.github.seancfoley</groupId>
@@ -50,4 +56,63 @@
             <version>5.7.0</version>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Maven Compiler Plugin - 指定编码 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.1</version>
+                <configuration>
+                    <source>1.8</source>
+                    <target>1.8</target>
+                    <encoding>UTF-8</encoding>
+                </configuration>
+            </plugin>
+            
+            <!-- Maven Shade Plugin - 创建可执行的 JAR -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!-- 设置主类 -->
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>net.sherpherd.bgp.utils.Main</mainClass>
+                                </transformer>
+                            </transformers>
+                            <!-- 输出文件名 -->
+                            <finalName>bgp-utils-cli</finalName>
+                            <!-- 包含所有依赖 -->
+                            <artifactSet>
+                                <includes>
+                                    <include>*:*</include>
+                                </includes>
+                            </artifactSet>
+                            <!-- 排除签名文件，避免冲突 -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <!-- 不再需要 includeSystemScope，因为不再使用 system scope -->
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
