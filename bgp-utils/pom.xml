@@ -38,6 +38,7 @@
                 <version>3.1.0</version>
                 <executions>
                     <execution>
+                        <?m2e execute onConfiguration,onIncremental?>
                         <id>install-mrt-dependency</id>
                         <phase>validate</phase> <!-- 在构建早期阶段执行 -->
                         <goals>
