@@ -174,14 +174,14 @@ public class Generate {
                 
                 if (Analysis.isShorterAsPath(asPath, existingAsPath)) {
                     routeMap.put(prefix, route);
-                    if (DataProvider.verbose) {
+                    if (Main.verbose) {
                         System.out.println("更新较短AS_PATH: prefix=" + prefix + " AS_PATH=" + asPath);
                     }
                 }
             } else {
                 // 新前缀，直接添加
                 routeMap.put(prefix, route);
-                if (DataProvider.verbose) {
+                if (Main.verbose) {
                     System.out.println("添加新路由: prefix=" + prefix + " AS_PATH=" + asPath);
                 }
             }
@@ -210,7 +210,7 @@ public class Generate {
         // 关闭MRTProvider资源
         in.close();
         
-        if (DataProvider.verbose) {
+        if (Main.verbose) {
             System.out.println("MRT到CSV转换完成，共处理 " + outputRoutes.size() + " 条路由");
         }
     }
@@ -255,7 +255,7 @@ public class Generate {
             
             // 验证路由数据的有效性
             if (!Analysis.isValidCIDR(prefix) || !Analysis.isValidAsPath(asPath)) {
-                if (DataProvider.verbose) {
+                if (Main.verbose) {
                     System.err.println("跳过无效路由: prefix=" + prefix + " AS_PATH=" + asPath);
                 }
                 continue;
@@ -283,14 +283,14 @@ public class Generate {
                 
                 if (Analysis.isShorterAsPath(asPath, existingAsPath)) {
                     routeMap.put(prefix, route);
-                    if (DataProvider.verbose) {
+                    if (Main.verbose) {
                         System.out.println("更新较短AS_PATH: prefix=" + prefix + " AS_PATH=" + asPath);
                     }
                 }
             } else {
                 // 新前缀，直接添加
                 routeMap.put(prefix, route);
-                if (DataProvider.verbose) {
+                if (Main.verbose) {
                     System.out.println("添加新路由: prefix=" + prefix + " AS_PATH=" + asPath);
                 }
             }
@@ -301,7 +301,7 @@ public class Generate {
         if (aggregate) {
             // 复用聚合方法，设置固定AS_PATH
             outputRoutes = aggregateRoutesWithFixedASPath(routeMap.values(), "0");
-            if (DataProvider.verbose) {
+            if (Main.verbose) {
                 System.out.println("路由聚合完成，从 " + routeMap.size() + " 条路由聚合为 " + outputRoutes.size() + " 条路由，AS_PATH固定为0");
             }
         } else {
@@ -321,7 +321,7 @@ public class Generate {
             throw new RuntimeException("写入输出文件失败: " + e.getMessage(), e);
         }
         
-        if (DataProvider.verbose) {
+        if (Main.verbose) {
             System.out.println("CSV到CSV转换完成，共处理 " + outputRoutes.size() + " 条路由");
         }
     }
@@ -440,14 +440,14 @@ private static void prepareOutputFile(String path) {
         if (!parentDir.mkdirs()) {
             throw new RuntimeException("无法创建输出文件的父目录: " + parentDir.getAbsolutePath());
         }
-        if (DataProvider.verbose) {
+        if (Main.verbose) {
             System.out.println("已创建输出目录: " + parentDir.getAbsolutePath());
         }
     }
     
     // 不删除现有文件，让写入操作自然覆盖
     if (file.exists()) {
-        if (DataProvider.verbose) {
+        if (Main.verbose) {
             System.out.println("输出文件已存在，将在写入时覆盖: " + path);
         }
     } else {
@@ -455,7 +455,7 @@ private static void prepareOutputFile(String path) {
             if (!file.createNewFile()) {
                 throw new RuntimeException("无法创建输出文件: " + path);
             }
-            if (DataProvider.verbose) {
+            if (Main.verbose) {
                 System.out.println("已创建输出文件: " + path);
             }
         } catch (IOException e) {
