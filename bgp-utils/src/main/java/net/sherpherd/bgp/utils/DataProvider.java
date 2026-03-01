@@ -57,7 +57,7 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
             File file = new File(filePath);
             if (file.exists()) {
                 if (Main.verbose) {
-                    System.out.println("CSV文件已存在: " + filePath);
+                    System.out.println(I18nManager.getString("debug.csv.exists", filePath));
                 }
                 return false;
             }
@@ -69,26 +69,25 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
             }
             
             if (file.createNewFile()) {
-                // 写入CSV列首部
                 try (PrintWriter writer = new PrintWriter(new FileWriter(filePath))) {
                     String headerLine = CSV_PREFIX_COL_HEADER + "," + CSV_ASPATH_COL_HEADER;
                     writer.println(headerLine);
                     
                     if (Main.verbose) {
-                        System.out.println("CSV文件创建成功并写入列首部: " + filePath);
-                        System.out.println("列首部: " + headerLine);
+                        System.out.println(I18nManager.getString("debug.csv.created", filePath));
+                        System.out.println(I18nManager.getString("debug.csv.header", headerLine));
                     }
                 }
                 return true;
             } else {
                 if (Main.verbose) {
-                    System.err.println("CSV文件创建失败: " + filePath);
+                    System.err.println(I18nManager.getString("debug.csv.create.failed", filePath));
                 }
                 return false;
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("创建CSV文件时发生IO异常: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.csv.io.error", e.getMessage()));
             }
             return false;
         }
@@ -101,7 +100,7 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
             // 文件必须存在才能读取
             if (!file.exists()) {
                 if (Main.verbose) {
-                    System.err.println("CSV文件不存在: " + path);
+                    System.err.println(I18nManager.getString("debug.csv.not.found", path));
                 }
                 return;
             }
@@ -134,7 +133,7 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("初始化CSVProvider失败: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.csv.init.failed", e.getMessage()));
             }
         }
     }
@@ -171,7 +170,7 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
             }
             
             if (Main.verbose) {
-                System.out.println("已写入 " + routes.size() + " 条路由到文件: " + path);
+                System.out.println(I18nManager.getString("debug.csv.written", routes.size(), path));
             }
         }
     }
@@ -205,14 +204,14 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
                 
                 if (!Analysis.isValidCIDR(prefix)) {
                     if (Main.verbose) {
-                        System.err.println("忽略无效CIDR: " + prefix);
+                        System.err.println(I18nManager.getString("debug.invalid.cidr", prefix));
                     }
                     continue;
                 }
                 
                 if (!Analysis.isValidAsPath(aspath)) {
                     if (Main.verbose) {
-                        System.err.println("忽略无效AS_PATH: " + aspath);
+                        System.err.println(I18nManager.getString("debug.invalid.aspath", aspath));
                     }
                     continue;
                 }
@@ -223,7 +222,7 @@ class CSVProvider extends DataProvider implements CreateProviderFile {
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("读取CSV文件失败: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.csv.read.failed", e.getMessage()));
             }
         }
         
@@ -291,7 +290,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
             File file = new File(filePath);
             if (file.exists()) {
                 if (Main.verbose) {
-                    System.out.println("文本文件已存在: " + filePath);
+                    System.out.println(I18nManager.getString("debug.text.exists", filePath));
                 }
                 return false;
             }
@@ -304,18 +303,18 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
             
             if (file.createNewFile()) {
                 if (Main.verbose) {
-                    System.out.println("文本文件创建成功: " + filePath);
+                    System.out.println(I18nManager.getString("debug.text.created", filePath));
                 }
                 return true;
             } else {
                 if (Main.verbose) {
-                    System.err.println("文本文件创建失败: " + filePath);
+                    System.err.println(I18nManager.getString("debug.text.create.failed", filePath));
                 }
                 return false;
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("创建文本文件时发生IO异常: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.text.io.error", e.getMessage()));
             }
             return false;
         }
@@ -328,7 +327,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
             // 文件必须存在才能读取
             if (!file.exists()) {
                 if (Main.verbose) {
-                    System.err.println("文本文件不存在: " + path);
+                    System.err.println(I18nManager.getString("debug.text.not.found", path));
                 }
                 return;
             }
@@ -338,7 +337,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
             
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("初始化RawTextProvider失败: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.text.init.failed", e.getMessage()));
             }
         }
     }
@@ -353,7 +352,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
             }
             
             if (Main.verbose) {
-                System.out.println("已写入 " + routes.size() + " 条路由到文件: " + path);
+                System.out.println(I18nManager.getString("debug.text.written", routes.size(), path));
             }
         }
     }
@@ -379,7 +378,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
                 
                 if (!Analysis.isValidCIDR(line)) {
                     if (Main.verbose) {
-                        System.err.println("忽略无效CIDR: " + line);
+                        System.err.println(I18nManager.getString("debug.invalid.cidr", line));
                     }
                     continue;
                 }
@@ -390,7 +389,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("读取文本文件失败: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.text.read.failed", e.getMessage()));
             }
         }
         
@@ -433,7 +432,7 @@ class RawTextProvider extends DataProvider implements CreateProviderFile {
                 reader.close();
             } catch (IOException e) {
                 if (Main.verbose) {
-                    System.err.println("关闭reader失败: " + e.getMessage());
+                    System.err.println(I18nManager.getString("debug.reader.close.failed", e.getMessage()));
                 }
             }
             reader = null;
@@ -456,7 +455,7 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
             File file = new File(filePath);
             if (file.exists()) {
                 if (Main.verbose) {
-                    System.out.println("脚本文件已存在: " + filePath);
+                    System.out.println(I18nManager.getString("debug.script.exists", filePath));
                 }
                 return false;
             }
@@ -469,18 +468,18 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
             
             if (file.createNewFile()) {
                 if (Main.verbose) {
-                    System.out.println("脚本文件创建成功: " + filePath);
+                    System.out.println(I18nManager.getString("debug.script.created", filePath));
                 }
                 return true;
             } else {
                 if (Main.verbose) {
-                    System.err.println("脚本文件创建失败: " + filePath);
+                    System.err.println(I18nManager.getString("debug.script.create.failed", filePath));
                 }
                 return false;
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("创建脚本文件时发生IO异常: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.script.io.error", e.getMessage()));
             }
             return false;
         }
@@ -517,16 +516,16 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
     public void addRoute(String prefix, String nexthop) {
         if (!Analysis.isValidCIDR(prefix)) {
             if (Main.verbose) {
-                System.err.println("跳过无效prefix: " + prefix);
+                System.err.println(I18nManager.getString("debug.invalid.prefix", prefix));
             }
-            return; // 跳过无效prefix
+            return;
         }
         
         if (!Analysis.isValidIPAddress(nexthop)) {
             if (Main.verbose) {
-                System.err.println("跳过无效nexthop: " + nexthop);
+                System.err.println(I18nManager.getString("debug.invalid.nexthop", nexthop));
             }
-            return; // 跳过无效nexthop
+            return;
         }
         
         boolean prefixIsIPv4 = Analysis.isValidIPv4Cidr(prefix);
@@ -535,9 +534,9 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
         // 当prefix和nexthop不属于同一地址家族时，跳过这条路由
         if (prefixIsIPv4 != nexthopIsIPv4) {
             if (Main.verbose) {
-                System.err.println("跳过地址家族不匹配的路由: prefix=" + prefix + " (" + 
-                                 (prefixIsIPv4 ? "IPv4" : "IPv6") + "), nexthop=" + nexthop + 
-                                 " (" + (nexthopIsIPv4 ? "IPv4" : "IPv6") + ")");
+                System.err.println(I18nManager.getString("debug.addr.family.mismatch", 
+                    prefix, (prefixIsIPv4 ? "IPv4" : "IPv6"),
+                    nexthop, (nexthopIsIPv4 ? "IPv4" : "IPv6")));
             }
             return;
         }
@@ -556,7 +555,7 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
         }
         
         if (Main.verbose) {
-            System.out.println("添加路由命令: " + command);
+            System.out.println(I18nManager.getString("debug.route.command.added", command));
         }
     }
 
@@ -566,7 +565,7 @@ class Iproute2ScriptProvider extends DataProvider implements CreateProviderFile 
             writer = null;
             
             if (Main.verbose) {
-                System.out.println("已写入 " + scripts.size() + " 条路由命令到文件: " + path);
+                System.out.println(I18nManager.getString("debug.script.written", scripts.size(), path));
             }
         }
     }
@@ -590,7 +589,7 @@ class MRTProvider extends DataProvider {
             // 文件必须存在
             if (!file.exists()) {
                 if (Main.verbose) {
-                    System.err.println("MRT文件不存在: " + path);
+                    System.err.println(I18nManager.getString("debug.mrt.not.found", path));
                 }
                 initialized = false;
                 return;
@@ -601,7 +600,7 @@ class MRTProvider extends DataProvider {
             initialized = true;
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("初始化MRTProvider失败: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.mrt.init.failed", e.getMessage()));
             }
             initialized = false;
         }
@@ -628,7 +627,7 @@ class MRTProvider extends DataProvider {
                     !Analysis.isValidCIDR(prefix) || !Analysis.isValidAsPath(asPath) ||
                     asPath == null || asPath.trim().isEmpty()) {
                     if (Main.verbose) {
-                        System.err.println("跳过无效路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                        System.err.println(I18nManager.getString("debug.invalid.route", prefix, asPath));
                     }
                     continue;
                 }
@@ -636,7 +635,7 @@ class MRTProvider extends DataProvider {
                 return route;
             } catch (Exception e) {
                 if (Main.verbose) {
-                    System.err.println("读取MRT记录异常，跳过该条记录: " + e.getMessage());
+                    System.err.println(I18nManager.getString("debug.mrt.read.error", e.getMessage()));
                 }
                 continue;
             }
@@ -665,11 +664,11 @@ class MRTProvider extends DataProvider {
             }
         } catch (IOException e) {
             if (Main.verbose) {
-                System.err.println("关闭MRTProvider失败: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.mrt.close.failed", e.getMessage()));
             }
         } catch (NullPointerException e) {
             if (Main.verbose) {
-                System.err.println("MRTProvider关闭时遇到空指针，可能已部分初始化: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.mrt.npe", e.getMessage()));
             }
         }
     }

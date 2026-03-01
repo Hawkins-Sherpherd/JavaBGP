@@ -36,12 +36,21 @@ public class I18nManager {
     }
 
     private static void loadBundle() {
+        currentLocale = mapToSupportedLocale(currentLocale);
         try {
             bundle = ResourceBundle.getBundle("messages", currentLocale, UTF8_CONTROL);
         } catch (MissingResourceException e) {
             currentLocale = Locale.ENGLISH;
             bundle = ResourceBundle.getBundle("messages", currentLocale, UTF8_CONTROL);
         }
+    }
+
+    private static Locale mapToSupportedLocale(Locale locale) {
+        String language = locale.getLanguage();
+        if ("zh".equals(language)) {
+            return Locale.SIMPLIFIED_CHINESE;
+        }
+        return Locale.US;
     }
 
     public static void setLocale(Locale locale) {
