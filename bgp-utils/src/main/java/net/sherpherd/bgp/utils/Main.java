@@ -149,6 +149,7 @@ public class Main {
         System.out.println(I18nManager.getString("cli.opt.o"));
         System.out.println(I18nManager.getString("cli.opt.r"));
         System.out.println(I18nManager.getString("cli.opt.c"));
+        System.out.println(I18nManager.getString("cli.opt.n"));
         System.out.println(I18nManager.getString("cli.opt.v"));
         System.out.println(I18nManager.getString("cli.opt.h"));
         System.out.println();
