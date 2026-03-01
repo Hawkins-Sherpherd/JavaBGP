@@ -52,7 +52,7 @@ public class GenerateTest {
         CSVProvider csvProvider = new CSVProvider(outCsv.getAbsolutePath());
         
         // 设置详细模式以便调试
-        DataProvider.verbose = true;
+        Main.verbose = true;
 
         // 执行转换
         Generate.generateRouteFromMRTToCSV(mrtProvider, csvProvider);

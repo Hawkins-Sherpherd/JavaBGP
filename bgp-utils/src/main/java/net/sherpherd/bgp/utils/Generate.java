@@ -63,8 +63,7 @@ public class Generate {
                     out.setRoute(-1, new String[]{prefix});
                 }
             } catch (IOException e) {
-                // 聚合失败，使用原始前缀
-                System.err.println("路由聚合失败，使用原始路由: " + e.getMessage());
+                System.err.println(I18nManager.getString("debug.aggregate.failed", e.getMessage()));
                 for (String prefix : prefixes) {
                     out.setRoute(-1, new String[]{prefix});
                 }
@@ -175,14 +174,13 @@ public class Generate {
                 if (Analysis.isShorterAsPath(asPath, existingAsPath)) {
                     routeMap.put(prefix, route);
                     if (Main.verbose) {
-                        System.out.println("更新较短AS_PATH: prefix=" + prefix + " AS_PATH=" + asPath);
+                        System.out.println(I18nManager.getString("debug.aspath.update", prefix, asPath));
                     }
                 }
             } else {
-                // 新前缀，直接添加
                 routeMap.put(prefix, route);
                 if (Main.verbose) {
-                    System.out.println("添加新路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                    System.out.println(I18nManager.getString("debug.route.added", prefix, asPath));
                 }
             }
         }
@@ -211,7 +209,7 @@ public class Generate {
         in.close();
         
         if (Main.verbose) {
-            System.out.println("MRT到CSV转换完成，共处理 " + outputRoutes.size() + " 条路由");
+            System.out.println(I18nManager.getString("debug.mrt2csv.complete", outputRoutes.size()));
         }
     }
 
@@ -256,7 +254,7 @@ public class Generate {
             // 验证路由数据的有效性
             if (!Analysis.isValidCIDR(prefix) || !Analysis.isValidAsPath(asPath)) {
                 if (Main.verbose) {
-                    System.err.println("跳过无效路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                    System.err.println(I18nManager.getString("debug.invalid.route", prefix, asPath));
                 }
                 continue;
             }
@@ -284,25 +282,22 @@ public class Generate {
                 if (Analysis.isShorterAsPath(asPath, existingAsPath)) {
                     routeMap.put(prefix, route);
                     if (Main.verbose) {
-                        System.out.println("更新较短AS_PATH: prefix=" + prefix + " AS_PATH=" + asPath);
+                        System.out.println(I18nManager.getString("debug.aspath.update", prefix, asPath));
                     }
                 }
             } else {
-                // 新前缀，直接添加
                 routeMap.put(prefix, route);
                 if (Main.verbose) {
-                    System.out.println("添加新路由: prefix=" + prefix + " AS_PATH=" + asPath);
+                    System.out.println(I18nManager.getString("debug.route.added", prefix, asPath));
                 }
             }
         }
         
-        // 处理聚合
         List<String[]> outputRoutes;
         if (aggregate) {
-            // 复用聚合方法，设置固定AS_PATH
             outputRoutes = aggregateRoutesWithFixedASPath(routeMap.values(), "0");
             if (Main.verbose) {
-                System.out.println("路由聚合完成，从 " + routeMap.size() + " 条路由聚合为 " + outputRoutes.size() + " 条路由，AS_PATH固定为0");
+                System.out.println(I18nManager.getString("debug.aggregate.complete", routeMap.size(), outputRoutes.size()));
             }
         } else {
             // 不聚合，直接使用处理后的路由
@@ -322,7 +317,7 @@ public class Generate {
         }
         
         if (Main.verbose) {
-            System.out.println("CSV到CSV转换完成，共处理 " + outputRoutes.size() + " 条路由");
+            System.out.println(I18nManager.getString("debug.csv2csv.complete", outputRoutes.size()));
         }
     }
 
@@ -378,8 +373,7 @@ public class Generate {
                 }
             }
         } catch (IOException e) {
-            System.err.println("路由聚合失败，使用原始路由: " + e.getMessage());
-            // 如果聚合失败，使用原始路由但AS_PATH仍设置为固定值
+            System.err.println(I18nManager.getString("debug.aggregate.failed", e.getMessage()));
             for (String[] route : routes) {
                 String[] fixedRoute = createRouteWithFixedASPath(route, route[0], fixedASPath);
                 result.add(fixedRoute);
@@ -441,14 +435,14 @@ private static void prepareOutputFile(String path) {
             throw new RuntimeException("无法创建输出文件的父目录: " + parentDir.getAbsolutePath());
         }
         if (Main.verbose) {
-            System.out.println("已创建输出目录: " + parentDir.getAbsolutePath());
+            System.out.println(I18nManager.getString("debug.output.dir.created", parentDir.getAbsolutePath()));
         }
     }
     
     // 不删除现有文件，让写入操作自然覆盖
     if (file.exists()) {
         if (Main.verbose) {
-            System.out.println("输出文件已存在，将在写入时覆盖: " + path);
+            System.out.println(I18nManager.getString("debug.output.exists", path));
         }
     } else {
         try {
@@ -456,7 +450,7 @@ private static void prepareOutputFile(String path) {
                 throw new RuntimeException("无法创建输出文件: " + path);
             }
             if (Main.verbose) {
-                System.out.println("已创建输出文件: " + path);
+                System.out.println(I18nManager.getString("debug.output.created", path));
             }
         } catch (IOException e) {
             throw new RuntimeException("创建输出文件失败: " + path + " - " + e.getMessage(), e);
@@ -577,7 +571,7 @@ private static void prepareOutputFile(String path) {
                 }
             }
         } catch (IOException e) {
-            System.err.println("路由聚合失败，使用原始路由: " + e.getMessage());
+            System.err.println(I18nManager.getString("debug.aggregate.failed", e.getMessage()));
             result.addAll(routes);
         }
         
