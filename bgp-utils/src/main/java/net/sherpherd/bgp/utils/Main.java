@@ -71,6 +71,9 @@ public class Main {
                     }
                     executeRawTextToIproute2(inputFile, outputFile, nexthop);
                     break;
+                case "invert":
+                    executeInvertRoutes(inputFile, outputFile);
+                    break;
                 default:
                     System.err.println(I18nManager.getString("cli.error.invalid.convert", convertType));
                     System.exit(1);
@@ -109,6 +112,13 @@ public class Main {
         RawTextProvider in = new RawTextProvider(inputFile);
         Iproute2ScriptProvider out = new Iproute2ScriptProvider(outputFile);
         Generate.generateScriptFromRawTextToIproute2(in, out, nexthop);
+        System.out.println(I18nManager.getString("prompt.complete"));
+    }
+    
+    private static void executeInvertRoutes(String inputFile, String outputFile) throws Exception {
+        RawTextProvider in = new RawTextProvider(inputFile);
+        RawTextProvider out = new RawTextProvider(outputFile);
+        Generate.generateInvertedRoutes(in, out);
         System.out.println(I18nManager.getString("prompt.complete"));
     }
     
@@ -183,9 +193,12 @@ public class Main {
                     processRawTextToIproute2();
                     break;
                 case "5":
-                    toggleVerbose();
+                    processInvertRoutes();
                     break;
                 case "6":
+                    toggleVerbose();
+                    break;
+                case "7":
                     System.out.println(I18nManager.getString("app.goodbye"));
                     return;
                 default:
@@ -219,9 +232,10 @@ public class Main {
         System.out.println("2. " + I18nManager.getString("menu.option2"));
         System.out.println("3. " + I18nManager.getString("menu.option3"));
         System.out.println("4. " + I18nManager.getString("menu.option4"));
-        System.out.println("5. " + I18nManager.getString("menu.option5", I18nManager.getString(verbose ? "msg.on" : "msg.off")));
-        System.out.println("6. " + I18nManager.getString("menu.option6"));
-        System.out.print(I18nManager.getString("menu.prompt"));
+        System.out.println("5. " + I18nManager.getString("menu.option5"));
+        System.out.println("6. " + I18nManager.getString("menu.option6", I18nManager.getString(verbose ? "msg.on" : "msg.off")));
+        System.out.println("7. " + I18nManager.getString("menu.option7"));
+        System.out.print(I18nManager.getString("menu.prompt.new"));
     }
     
     private static void processMRTToCSV() {
@@ -333,6 +347,34 @@ public class Main {
             Iproute2ScriptProvider out = new Iproute2ScriptProvider(outputFile);
             
             Generate.generateScriptFromRawTextToIproute2(in, out, nexthop);
+            
+            System.out.println(I18nManager.getString("prompt.complete"));
+        } catch (Exception e) {
+            System.err.println(I18nManager.getString("prompt.failed", e.getMessage()));
+            if (verbose) {
+                e.printStackTrace();
+            }
+        }
+    }
+    
+    private static void processInvertRoutes() {
+        System.out.println("\n=== " + I18nManager.getString("invert.title") + " ===");
+        
+        String inputFile = getInput(I18nManager.getString("prompt.input"));
+        String outputFile = getInput(I18nManager.getString("prompt.output"));
+        
+        System.out.print(I18nManager.getString("prompt.confirm"));
+        String confirm = scanner.nextLine().trim();
+        if (!confirm.equalsIgnoreCase("y")) {
+            System.out.println(I18nManager.getString("prompt.cancel"));
+            return;
+        }
+        
+        try {
+            RawTextProvider in = new RawTextProvider(inputFile);
+            RawTextProvider out = new RawTextProvider(outputFile);
+            
+            Generate.generateInvertedRoutes(in, out);
             
             System.out.println(I18nManager.getString("prompt.complete"));
         } catch (Exception e) {
