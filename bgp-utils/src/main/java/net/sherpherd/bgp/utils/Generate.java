@@ -4,6 +4,7 @@ package net.sherpherd.bgp.utils;
 import java.util.*;
 import java.io.File;
 import java.io.IOException;
+import java.math.BigInteger;
 
 public class Generate {
     
@@ -510,6 +511,388 @@ private static void prepareOutputFile(String path) {
             
             // 删除临时文件
             java.nio.file.Files.deleteIfExists(tempFile);
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 从RawTextProvider中读取路由前缀，计算其对于公网可路由地址空间的补集，输出到RawTextProvider
+     * IPv4公网可路由地址空间：除去私有地址、保留地址等不可在公网路由的部分
+     * IPv6公网可路由地址空间：2000::/3
+     * @param in 输入的RawTextProvider
+     * @param out 输出的RawTextProvider
+     */
+    public static void generateInvertedRoutes(RawTextProvider in, RawTextProvider out) {
+        checkInputFile(in.path);
+        prepareOutputFile(out.path);
+        
+        List<String> ipv4Prefixes = new ArrayList<>();
+        List<String> ipv6Prefixes = new ArrayList<>();
+        
+        String[] route;
+        while ((route = in.getNextRoute()) != null) {
+            String prefix = route[0];
+            if (Analysis.isValidIPv4Cidr(prefix)) {
+                ipv4Prefixes.add(prefix);
+            } else if (Analysis.isValidIPv6Cidr(prefix)) {
+                ipv6Prefixes.add(prefix);
+            }
+        }
+        
+        List<String> invertedPrefixes = new ArrayList<>();
+        
+        try {
+            if (!ipv4Prefixes.isEmpty()) {
+                List<String> ipv4Inverted = invertIPv4Routes(ipv4Prefixes);
+                invertedPrefixes.addAll(ipv4Inverted);
+                if (Main.verbose) {
+                    System.out.println(I18nManager.getString("debug.invert.ipv4.complete", ipv4Prefixes.size(), ipv4Inverted.size()));
+                }
+            }
+            
+            if (!ipv6Prefixes.isEmpty()) {
+                List<String> ipv6Inverted = invertIPv6Routes(ipv6Prefixes);
+                invertedPrefixes.addAll(ipv6Inverted);
+                if (Main.verbose) {
+                    System.out.println(I18nManager.getString("debug.invert.ipv6.complete", ipv6Prefixes.size(), ipv6Inverted.size()));
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("取反路由失败: " + e.getMessage(), e);
+        }
+        
+        for (String prefix : invertedPrefixes) {
+            out.setRoute(-1, new String[]{prefix});
+        }
+        
+        try {
+            out.writeToFile();
+        } catch (IOException e) {
+            throw new RuntimeException("写入输出文件失败: " + e.getMessage(), e);
+        }
+        
+        if (Main.verbose) {
+            System.out.println(I18nManager.getString("debug.invert.complete", invertedPrefixes.size()));
+        }
+    }
+    
+    /**
+     * 计算IPv4路由的补集（相对于公网可路由地址空间）
+     * 公网可路由IPv4地址空间包括：
+     * - 1.0.0.0/8 到 9.0.0.0/8 (除去 10.0.0.0/8 私有)
+     * - 11.0.0.0/8 到 100.0.0.0/8 (除去若干保留段)
+     * - 101.0.0.0/8 到 126.0.0.0/8
+     * - 128.0.0.0/8 到 169.253.0.0/16 (除去 127.0.0.0/8 回环, 169.254.0.0/16 链路本地)
+     * - 170.0.0.0/8 到 172.15.0.0/12
+     * - 172.32.0.0/8 到 191.0.0.0/8 (除去 172.16.0.0/12 私有)
+     * - 192.0.1.0/24 到 192.167.255.255 (除去若干保留段)
+     * - 192.169.0.0/8 到 223.255.255.255 (除去 192.168.0.0/16 私有)
+     */
+    private static List<String> invertIPv4Routes(List<String> prefixes) throws IOException {
+        List<long[]> inputRanges = new ArrayList<>();
+        for (String prefix : prefixes) {
+            long[] range = ipv4CidrToRange(prefix);
+            if (range != null) {
+                inputRanges.add(range);
+            }
+        }
+        
+        if (inputRanges.isEmpty()) {
+            return getPublicIPv4Space();
+        }
+        
+        Collections.sort(inputRanges, Comparator.comparingLong(a -> a[0]));
+        
+        List<long[]> mergedInput = new ArrayList<>();
+        long curS = inputRanges.get(0)[0];
+        long curE = inputRanges.get(0)[1];
+        for (int i = 1; i < inputRanges.size(); i++) {
+            long s = inputRanges.get(i)[0];
+            long e = inputRanges.get(i)[1];
+            if (s <= curE + 1) {
+                if (e > curE) curE = e;
+            } else {
+                mergedInput.add(new long[] {curS, curE});
+                curS = s;
+                curE = e;
+            }
+        }
+        mergedInput.add(new long[] {curS, curE});
+        
+        List<long[]> publicSpace = getPublicIPv4Ranges();
+        
+        List<long[]> invertedRanges = new ArrayList<>();
+        for (long[] publicRange : publicSpace) {
+            List<long[]> currentRanges = new ArrayList<>();
+            currentRanges.add(publicRange);
+            
+            for (long[] inputRange : mergedInput) {
+                List<long[]> newRanges = new ArrayList<>();
+                for (long[] current : currentRanges) {
+                    newRanges.addAll(subtractRange(current, inputRange));
+                }
+                currentRanges = newRanges;
+            }
+            
+            invertedRanges.addAll(currentRanges);
+        }
+        
+        List<String> result = new ArrayList<>();
+        for (long[] range : invertedRanges) {
+            result.addAll(rangeToIPv4Cidrs(range[0], range[1]));
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 获取公网可路由IPv4地址空间范围列表
+     */
+    private static List<long[]> getPublicIPv4Ranges() {
+        List<long[]> ranges = new ArrayList<>();
+        
+        ranges.add(new long[]{ipV4ToLong("1.0.0.0"), ipV4ToLong("9.255.255.255")});
+        
+        ranges.add(new long[]{ipV4ToLong("11.0.0.0"), ipV4ToLong("100.63.255.255")});
+        ranges.add(new long[]{ipV4ToLong("100.128.0.0"), ipV4ToLong("126.255.255.255")});
+        
+        ranges.add(new long[]{ipV4ToLong("128.0.0.0"), ipV4ToLong("169.253.255.255")});
+        ranges.add(new long[]{ipV4ToLong("170.0.0.0"), ipV4ToLong("172.15.255.255")});
+        ranges.add(new long[]{ipV4ToLong("172.32.0.0"), ipV4ToLong("191.255.255.255")});
+        
+        ranges.add(new long[]{ipV4ToLong("192.0.1.0"), ipV4ToLong("192.167.255.255")});
+        ranges.add(new long[]{ipV4ToLong("192.169.0.0"), ipV4ToLong("223.255.255.255")});
+        
+        return ranges;
+    }
+    
+    /**
+     * 获取完整的公网可路由IPv4地址空间CIDR列表
+     */
+    private static List<String> getPublicIPv4Space() throws IOException {
+        List<String> result = new ArrayList<>();
+        for (long[] range : getPublicIPv4Ranges()) {
+            result.addAll(rangeToIPv4Cidrs(range[0], range[1]));
+        }
+        return result;
+    }
+    
+    /**
+     * 计算IPv6路由的补集（相对于2000::/3）
+     */
+    private static List<String> invertIPv6Routes(List<String> prefixes) throws IOException {
+        List<BigInteger[]> inputRanges = new ArrayList<>();
+        for (String prefix : prefixes) {
+            BigInteger[] range = ipv6CidrToRange(prefix);
+            if (range != null) {
+                inputRanges.add(range);
+            }
+        }
+        
+        BigInteger[] publicSpace = getPublicIPv6Range();
+        
+        if (inputRanges.isEmpty()) {
+            return rangeToIPv6Cidrs(publicSpace[0], publicSpace[1]);
+        }
+        
+        Collections.sort(inputRanges, (a, b) -> a[0].compareTo(b[0]));
+        
+        List<BigInteger[]> mergedInput = new ArrayList<>();
+        BigInteger curS = inputRanges.get(0)[0];
+        BigInteger curE = inputRanges.get(0)[1];
+        for (int i = 1; i < inputRanges.size(); i++) {
+            BigInteger s = inputRanges.get(i)[0];
+            BigInteger e = inputRanges.get(i)[1];
+            if (s.compareTo(curE.add(BigInteger.ONE)) <= 0) {
+                if (e.compareTo(curE) > 0) curE = e;
+            } else {
+                mergedInput.add(new BigInteger[] {curS, curE});
+                curS = s;
+                curE = e;
+            }
+        }
+        mergedInput.add(new BigInteger[] {curS, curE});
+        
+        List<BigInteger[]> currentRanges = new ArrayList<>();
+        currentRanges.add(publicSpace);
+        
+        for (BigInteger[] inputRange : mergedInput) {
+            List<BigInteger[]> newRanges = new ArrayList<>();
+            for (BigInteger[] current : currentRanges) {
+                newRanges.addAll(subtractIPv6Range(current, inputRange));
+            }
+            currentRanges = newRanges;
+        }
+        
+        List<String> result = new ArrayList<>();
+        for (BigInteger[] range : currentRanges) {
+            result.addAll(rangeToIPv6Cidrs(range[0], range[1]));
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 获取公网可路由IPv6地址空间范围 (2000::/3)
+     */
+    private static BigInteger[] getPublicIPv6Range() {
+        BigInteger start = new BigInteger("20000000000000000000000000000000", 16);
+        BigInteger end = new BigInteger("3fffffffffffffffffffffffffffffff", 16);
+        return new BigInteger[] {start, end};
+    }
+    
+    private static long[] ipv4CidrToRange(String cidr) {
+        try {
+            String[] parts = cidr.split("/");
+            String ip = parts[0];
+            int prefix = Integer.parseInt(parts[1]);
+            long ipNum = ipV4ToLong(ip);
+            long mask = prefix == 0 ? 0L : (~0L) << (32 - prefix) & 0xffffffffL;
+            long start = ipNum & mask;
+            long size = (prefix == 32) ? 1L : (1L << (32 - prefix));
+            long end = start + size - 1;
+            return new long[] {start, end};
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+    
+    private static long ipV4ToLong(String ip) {
+        String[] oct = ip.split("\\.");
+        long res = 0;
+        for (int i = 0; i < 4; i++) {
+            res = (res << 8) | (Integer.parseInt(oct[i]) & 0xff);
+        }
+        return res & 0xffffffffL;
+    }
+    
+    private static String longToIPv4(long v) {
+        return String.format("%d.%d.%d.%d", (v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff);
+    }
+    
+    private static List<String> rangeToIPv4Cidrs(long start, long end) {
+        List<String> out = new ArrayList<>();
+        long cur = start;
+        while (cur <= end) {
+            long maxSize = cur & -cur;
+            if (maxSize == 0) maxSize = 1L << 32;
+            long rem = end - cur + 1;
+            long block = maxSize;
+            while (block > rem) {
+                block >>= 1;
+            }
+            int prefixLen = 32 - (int)(Math.log(block) / Math.log(2));
+            out.add(longToIPv4(cur) + "/" + prefixLen);
+            cur += block;
+        }
+        return out;
+    }
+    
+    private static List<long[]> subtractRange(long[] range, long[] subtract) {
+        List<long[]> result = new ArrayList<>();
+        
+        if (subtract[1] < range[0] || subtract[0] > range[1]) {
+            result.add(range);
+            return result;
+        }
+        
+        if (subtract[0] > range[0]) {
+            result.add(new long[] {range[0], subtract[0] - 1});
+        }
+        
+        if (subtract[1] < range[1]) {
+            result.add(new long[] {subtract[1] + 1, range[1]});
+        }
+        
+        return result;
+    }
+    
+    private static BigInteger[] ipv6CidrToRange(String cidr) {
+        try {
+            String[] parts = cidr.split("/");
+            String ip = parts[0];
+            int prefix = Integer.parseInt(parts[1]);
+            BigInteger ipNum = ipV6ToBigInt(ip);
+            BigInteger allOnes = BigInteger.ONE.shiftLeft(128).subtract(BigInteger.ONE);
+            BigInteger mask;
+            if (prefix == 0) {
+                mask = BigInteger.ZERO;
+            } else {
+                mask = allOnes.shiftRight(128 - prefix).shiftLeft(128 - prefix);
+            }
+            BigInteger start = ipNum.and(mask);
+            BigInteger size = (prefix == 128) ? BigInteger.ONE : BigInteger.ONE.shiftLeft(128 - prefix);
+            BigInteger end = start.add(size).subtract(BigInteger.ONE);
+            return new BigInteger[] {start, end};
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+    
+    private static BigInteger ipV6ToBigInt(String ip) throws java.net.UnknownHostException {
+        byte[] bytes = java.net.InetAddress.getByName(ip).getAddress();
+        return new BigInteger(1, bytes);
+    }
+    
+    private static String bigIntToIPv6(BigInteger v) throws java.net.UnknownHostException {
+        byte[] bytes = toFixedLength(v.toByteArray(), 16);
+        java.net.InetAddress addr = java.net.InetAddress.getByAddress(bytes);
+        return addr.getHostAddress();
+    }
+    
+    private static byte[] toFixedLength(byte[] src, int length) {
+        byte[] dest = new byte[length];
+        int srcPos = Math.max(0, src.length - length);
+        int destPos = Math.max(0, length - src.length);
+        int copyLen = Math.min(src.length, length);
+        System.arraycopy(src, srcPos, dest, destPos, copyLen);
+        return dest;
+    }
+    
+    private static List<String> rangeToIPv6Cidrs(BigInteger start, BigInteger end) {
+        List<String> out = new ArrayList<>();
+        BigInteger cur = start;
+        BigInteger one = BigInteger.ONE;
+        while (cur.compareTo(end) <= 0) {
+            int lowestSet;
+            if (cur.equals(BigInteger.ZERO)) {
+                lowestSet = 128;
+            } else {
+                lowestSet = cur.getLowestSetBit();
+            }
+            BigInteger maxBlock = one.shiftLeft(lowestSet);
+            BigInteger rem = end.subtract(cur).add(one);
+            BigInteger block = maxBlock;
+            while (block.compareTo(rem) > 0) {
+                block = block.shiftRight(1);
+            }
+            int log2 = block.bitLength() - 1;
+            int prefixLen = 128 - log2;
+            try {
+                out.add(bigIntToIPv6(cur) + "/" + prefixLen);
+            } catch (java.net.UnknownHostException e) {
+                out.add(cur.toString(16) + "/" + prefixLen);
+            }
+            cur = cur.add(block);
+        }
+        return out;
+    }
+    
+    private static List<BigInteger[]> subtractIPv6Range(BigInteger[] range, BigInteger[] subtract) {
+        List<BigInteger[]> result = new ArrayList<>();
+        
+        if (subtract[1].compareTo(range[0]) < 0 || subtract[0].compareTo(range[1]) > 0) {
+            result.add(range);
+            return result;
+        }
+        
+        if (subtract[0].compareTo(range[0]) > 0) {
+            result.add(new BigInteger[] {range[0], subtract[0].subtract(BigInteger.ONE)});
+        }
+        
+        if (subtract[1].compareTo(range[1]) < 0) {
+            result.add(new BigInteger[] {subtract[1].add(BigInteger.ONE), range[1]});
         }
         
         return result;
